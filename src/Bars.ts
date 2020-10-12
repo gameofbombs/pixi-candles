@@ -41,7 +41,7 @@ void main(void) {
 
         static getProgram(): PIXI.Program {
             if (!BarsShader._prog) {
-                BarsShader._prog = null;
+                BarsShader._prog = new PIXI.Program(barVert, barFrag);
             }
             return BarsShader._prog;
         }
