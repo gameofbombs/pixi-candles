@@ -1,0 +1,45 @@
+{
+  "name": "pixi-candles",
+  "version": "0.1.0",
+  "description": "PixiJS v5 plugin, draws bars and edits them",
+  "author": "Ivan Popelyshev",
+  "contributors": [
+    "Ivan Popelyshev <ivan.popelyshev@gmail.com>"
+  ],
+  "main": "./dist/pixi-candles.js",
+  "types": "./dist/pixi-candles.d.ts",
+  "homepage": "http://www.pixijs.com/",
+  "bugs": "https://github.com/gameofbombs/pixi-candles/issues",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gameofbombs/pixi-candles.git"
+  },
+  "scripts": {
+    "cleanup": "rimraf dist && mkdirp dist",
+    "prestart": "yarn cleanup",
+    "start": "parallelshell \"yarn watch\"",
+    "watch": "tsc -w",
+    "prebuild": "yarn cleanup",
+    "make:dts": "node scripts/make_dts.js",
+    "build": "tsc && yarn make:dts"
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "package.json",
+    "tsconfig.json",
+    "README.md"
+  ],
+  "devDependencies": {
+    "del": "^2.2.0",
+    "mkdirp": "^0.5.1",
+    "parallelshell": "^2.0.0",
+    "pixi.js-legacy": "^5.3.3",
+    "rimraf": "^2.5.3",
+    "tmp": "^0.2.1",
+    "typescript": "^3.6.3"
+  }
+}
