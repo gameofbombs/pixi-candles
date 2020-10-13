@@ -1,23 +1,24 @@
 namespace pixi_candles {
     const barVert = `
-attribute vec2 aRect;
+attribute vec4 aRect;
 attribute vec2 aQuad;
+attribute vec4 aColor;
 uniform mat3 projectionMatrix;
 uniform mat3 translationMatrix;
-uniform vec2 resolution;
+uniform float resolution;
 uniform vec4 uColor;
 
-varying vec2 vPixelPos;
+varying vec4 vPixelPos;
 varying vec4 vPixelRect;
 varying vec4 vColor;
 
 void main(void){
     vec2 pos = (translationMatrix * vec3(aRect.xy + aRect.zw * aQuad, 1.0)).xy;
     pos = floor(pos * resolution + 0.01 + aQuad * 0.98) / resolution;
-    vScale = vec2(translationMatrix.xx, translationMatrix.yy) * resolution);
+    vec2 vScale = vec2(translationMatrix[0][0], translationMatrix[1][1]) * resolution;
     vScale = 1.0 / abs(vScale);
     gl_Position = vec4((projectionMatrix * vec3(pos, 1.0)).xy, 0.0, 1.0);
-    vRect = vec4(aRect.xy * vScale, aRect.zw * vScale);
+    vPixelRect = vec4(aRect.xy * vScale, aRect.zw * vScale);
     pos *= vScale;
     vPixelPos = vec4(pos - 0.5, pos + 0.5);
     vColor = aColor * uColor;
@@ -71,19 +72,19 @@ void main(void) {
         points: Array<number> = [];
         _floatView: Float32Array = null;
         _u32View: Uint32Array = null;
-        _buffer: PIXI.GeometryBuffer = null;
-        _quad: PIXI.GeometryBuffer = null;
-        _indexBuffer: PIXI.GeometryBuffer = null;
+        _buffer: PIXI.Buffer = null;
+        _quad: PIXI.Buffer = null;
+        _indexBuffer: PIXI.Buffer = null;
 
         initGeom(_static: boolean) {
-            this._buffer = new PIXI.GeometryBuffer(null, _static, false);
+            this._buffer = new PIXI.Buffer(null, _static, false);
 
-            this._quad = new PIXI.GeometryBuffer(new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), true, false);
+            this._quad = new PIXI.Buffer(new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), true, false);
 
-            this._indexBuffer = new PIXI.GeometryBuffer(new Uint16Array([0, 1, 2, 0, 2, 3]), true, true);
+            this._indexBuffer = new PIXI.Buffer(new Uint16Array([0, 1, 2, 0, 2, 3]), true, true);
 
-            this.addAttribute('aRect', this._buffer, 4, false, TYPES.FLOAT, undefined, undefined, 1)
-                .addAttribute('aColor', this._buffer, 4, true, TYPES.UNSIGNED_BYTE, undefined, undefined, 1)
+            this.addAttribute('aRect', this._buffer, 4, false, TYPES.FLOAT, undefined, undefined, true)
+                .addAttribute('aColor', this._buffer, 4, true, TYPES.UNSIGNED_BYTE, undefined, undefined, true)
                 .addAttribute('aQuad', this._buffer, 2, false, TYPES.FLOAT)
                 .addIndex(this._indexBuffer);
         }
@@ -117,9 +118,11 @@ void main(void) {
             const {points, strideBytes} = this;
             this.lastPointNum = 0;
             this.lastPointData = 0;
-            this._buffer.update(new ArrayBuffer(strideBytes * points.length));
-            this._floatView = new Float32Array(this._buffer);
-            this._u32View = new Float32Array(this._buffer);
+            const arrBuf = new ArrayBuffer(strideBytes * points.length);
+            this.lastLen = points.length;
+            this._floatView = new Float32Array(arrBuf);
+            this._u32View = new Uint32Array(arrBuf);
+            this._buffer.update(arrBuf);
         }
 
         updateBuffer() {
@@ -145,7 +148,7 @@ void main(void) {
                 _floatView[j++] = points[i + 1];
                 _floatView[j++] = points[i + 2];
                 _floatView[j++] = points[i + 3];
-                _u32View[j++] = points[i + 4];
+                _u32View[j++] = points[i + 4] + (255<<24);
             }
 
             this.lastPointNum = this.lastLen;
@@ -155,7 +158,7 @@ void main(void) {
 
     export class Bars extends PIXI.Mesh {
         constructor() {
-            super(new BarsShader(), new BarsGeometry());
+            super(new BarsGeometry(), new BarsShader());
         }
 
         addRect(x: number, y: number, w: number, h: number, color: number) {
