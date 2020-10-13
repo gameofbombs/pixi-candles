@@ -85,7 +85,7 @@ void main(void) {
 
             this.addAttribute('aRect', this._buffer, 4, false, TYPES.FLOAT, undefined, undefined, true)
                 .addAttribute('aColor', this._buffer, 4, true, TYPES.UNSIGNED_BYTE, undefined, undefined, true)
-                .addAttribute('aQuad', this._buffer, 2, false, TYPES.FLOAT)
+                .addAttribute('aQuad', this._quad, 2, false, TYPES.FLOAT)
                 .addIndex(this._indexBuffer);
         }
         stridePoints = 5;
@@ -148,8 +148,12 @@ void main(void) {
                 _floatView[j++] = points[i + 1];
                 _floatView[j++] = points[i + 2];
                 _floatView[j++] = points[i + 3];
-                _u32View[j++] = points[i + 4] + (255<<24);
+
+                const rgb = points[i + 4];
+                const bgra = ((rgb >> 16) & 0xff) | (rgb & 0xff00) | ((rgb & 0xff) << 16) | (255<<24);
+                _u32View[j++] = bgra;
             }
+            this.instanceCount = Math.round(points.length / stridePoints);
 
             this.lastPointNum = this.lastLen;
             this.lastPointData = this.lastLen; // TODO: partial upload
@@ -170,6 +174,8 @@ void main(void) {
         {
             const geometry = this.geometry as BarsGeometry;
             geometry.updateBuffer();
+            const rt = renderer.renderTexture.current;
+            this.shader.uniforms.resolution = rt ? rt.baseTexture.resolution : renderer.resolution;
             super._renderDefault(renderer);
         }
     }
