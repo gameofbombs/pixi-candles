@@ -13,14 +13,32 @@ varying vec4 vPixelRect;
 varying vec4 vColor;
 
 void main(void){
+    vec2 p1 = (translationMatrix * vec3(aRect.xy, 1.0)).xy;
+    vec2 p2 = (translationMatrix * vec3(aRect.xy + aRect.zw, 1.0)).xy;
+
+    vec2 leftTop = p1;
+    vec2 rightBottom = p2;
+    vec2 sign = aQuad;
+
+    // handle negative width/height, or translationMatrix .a .d < 0
+    if (p1.x > p2.x) {
+        sign.x = 1.0 - aQuad.x;
+        leftTop.x = p2.x;
+        rightBottom.x = p1.x;
+    }
+    if (p1.y > p2.y) {
+        sign.y = 1.0 - aQuad.y;
+        leftTop.y = p2.y;
+        rightBottom.y = p1.y;
+    }
+
+    vPixelRect = vec4(leftTop * resolution, rightBottom * resolution);
+
     vec2 pos = (translationMatrix * vec3(aRect.xy + aRect.zw * aQuad, 1.0)).xy;
-    pos = floor(pos * resolution + 0.01 + aQuad * 0.98) / resolution;
-    vec2 vScale = vec2(translationMatrix[0][0], translationMatrix[1][1]) * resolution;
-    vScale = 1.0 / abs(vScale);
-    gl_Position = vec4((projectionMatrix * vec3(pos, 1.0)).xy, 0.0, 1.0);
-    vPixelRect = vec4(aRect.xy * vScale, aRect.zw * vScale);
-    pos *= vScale;
+    pos = floor(pos * resolution + 0.01 + sign * 0.98);
     vPixelPos = vec4(pos - 0.5, pos + 0.5);
+    gl_Position = vec4((projectionMatrix * vec3(pos / resolution, 1.0)).xy, 0.0, 1.0);
+
     vColor = aColor * uColor;
 }`;
     const barFrag = `
@@ -31,7 +49,7 @@ varying vec4 vColor;
 void main(void) {
     vec2 leftTop = max(vPixelPos.xy, vPixelRect.xy);
     vec2 rightBottom = min(vPixelPos.zw, vPixelRect.zw);
-    vec2 area = min(rightBottom - leftTop, 0.0);
+    vec2 area = max(rightBottom - leftTop, 0.0);
     float clip = area.x * area.y;
 
     gl_FragColor = vColor * clip;
