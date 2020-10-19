@@ -106,6 +106,7 @@ void main(void) {
                 .addAttribute('aQuad', this._quad, 2, false, TYPES.FLOAT)
                 .addIndex(this._indexBuffer);
         }
+
         stridePoints = 5;
         strideFloats = 5;
         strideBytes = 20;
@@ -168,7 +169,7 @@ void main(void) {
                 _floatView[j++] = points[i + 3];
 
                 const rgb = points[i + 4];
-                const bgra = ((rgb >> 16) & 0xff) | (rgb & 0xff00) | ((rgb & 0xff) << 16) | (255<<24);
+                const bgra = ((rgb >> 16) & 0xff) | (rgb & 0xff00) | ((rgb & 0xff) << 16) | (255 << 24);
                 _u32View[j++] = bgra;
             }
             this.instanceCount = Math.round(points.length / stridePoints);
@@ -188,13 +189,35 @@ void main(void) {
             geometry.addRect(x, y, w, h, color);
         }
 
-        _renderDefault(renderer: PIXI.Renderer): void
-        {
+        _renderDefault(renderer: PIXI.Renderer): void {
             const geometry = this.geometry as BarsGeometry;
             geometry.updateBuffer();
             const rt = renderer.renderTexture.current;
             this.shader.uniforms.resolution = rt ? rt.baseTexture.resolution : renderer.resolution;
             super._renderDefault(renderer);
+        }
+
+        _renderCanvas(renderer: PIXI.CanvasRenderer): void {
+            const {points} = this.geometry as BarsGeometry;
+            const {context} = renderer;
+
+            renderer.setContextTransform(this.transform.worldTransform);
+
+            let clr = -1;
+            for (let i = 0; i < points.length; i += 5) {
+                if (clr !== points[i + 4]) {
+                    clr = points[i + 4];
+                    let fill = clr.toString(16);
+                    while (fill.length < 6) {
+                        fill = '0' + fill;
+                    }
+                    context.fillStyle = '#' + fill;
+                }
+                context.beginPath();
+                context.rect(points[i], points[i + 1], points[i + 2], points[i + 3]);
+                context.fill();
+            }
+            context.beginPath();
         }
     }
 }
