@@ -176,6 +176,51 @@ void main(void) {
 
             this.lastPointNum = this.lastLen;
             this.lastPointData = this.lastLen; // TODO: partial upload
+
+            if (this.legacyGeom) {
+                this.updateLegacy();
+            }
+        }
+
+        legacyGeom: PIXI.Geometry = null;
+        legacyBuffer: PIXI.Buffer = null;
+
+        initLegacy() {
+            if (this.legacyGeom) {
+                return;
+            }
+            this.legacyGeom = new PIXI.Geometry();
+            this.legacyBuffer = new PIXI.Buffer(new Float32Array(0), false, false);
+            this.legacyGeom.addAttribute('aRect', this.legacyBuffer, 4, false, TYPES.FLOAT)
+                .addAttribute('aColor', this.legacyBuffer, 4, true, TYPES.UNSIGNED_BYTE)
+                .addAttribute('aQuad', this.legacyBuffer, 2, false, TYPES.FLOAT)
+                .addIndex(new PIXI.Buffer(new Uint16Array([0, 1, 2, 0, 2, 3]), false, true));
+        }
+
+        updateLegacy() {
+            const {legacyBuffer, _floatView, _u32View, strideFloats} = this;
+            const strideLegacy = 7;
+            const quadsCount = this._floatView.length / strideFloats;
+            const legacyLen = quadsCount * strideLegacy * 4;
+            if ((legacyBuffer.data as Float32Array).length !== legacyLen) {
+                legacyBuffer.data = new Float32Array(legacyLen);
+                this.legacyGeom.getIndex().update(PIXI.utils.createIndicesForQuads(quadsCount));
+            }
+            const floats: Float32Array = legacyBuffer.data as any;
+            const quad: Float32Array = this._quad.data as any;
+
+            for (let i = 0, j = 0; i < this._floatView.length;) {
+                for (let k = 0; k < 4; k++) {
+                    floats[j++] = _floatView[i];
+                    floats[j++] = _floatView[i + 1];
+                    floats[j++] = _floatView[i + 2];
+                    floats[j++] = _floatView[i + 3];
+                    floats[j++] = _floatView[i + 4];
+                    floats[j++] = quad[k * 2]
+                    floats[j++] = quad[k * 2 + 1];
+                }
+                i += strideFloats;
+            }
         }
     }
 
@@ -191,9 +236,22 @@ void main(void) {
 
         _renderDefault(renderer: PIXI.Renderer): void {
             const geometry = this.geometry as BarsGeometry;
+
+            const useLegacy = !renderer.geometry.hasInstance;
+            if (useLegacy) {
+                geometry.initLegacy();
+            }
             geometry.updateBuffer();
             const rt = renderer.renderTexture.current;
             this.shader.uniforms.resolution = rt ? rt.baseTexture.resolution : renderer.resolution;
+
+            if (useLegacy) {
+                // hacky!
+                (this as any).geometry = geometry.legacyGeom;
+                super._renderDefault(renderer);
+                (this as any).geometry = geometry;
+                return;
+            }
             super._renderDefault(renderer);
         }
 
