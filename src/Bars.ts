@@ -172,6 +172,7 @@ void main(void) {
                 const bgra = ((rgb >> 16) & 0xff) | (rgb & 0xff00) | ((rgb & 0xff) << 16) | (255 << 24);
                 _u32View[j++] = bgra;
             }
+            this._buffer.update();
             this.instanceCount = Math.round(points.length / stridePoints);
 
             this.lastPointNum = this.lastLen;
@@ -221,6 +222,7 @@ void main(void) {
                 }
                 i += strideFloats;
             }
+            legacyBuffer.update();
         }
     }
 
@@ -232,6 +234,10 @@ void main(void) {
         addRect(x: number, y: number, w: number, h: number, color: number) {
             const geometry = this.geometry as BarsGeometry;
             geometry.addRect(x, y, w, h, color);
+        }
+
+        clear() {
+            (this.geometry as BarsGeometry).reset();
         }
 
         _renderDefault(renderer: PIXI.Renderer): void {
