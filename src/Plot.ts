@@ -191,8 +191,8 @@ void main(void) {
             this._indexBuffer = new PIXI.Buffer(new Uint16Array([0, 1, 2, 0, 2, 3]), true, true);
 
             this.addAttribute('aPoint0', this._buffer, 2, false, TYPES.FLOAT, undefined, undefined, true)
-                .addAttribute('aPoint1', this._buffer, 2, true, TYPES.FLOAT, undefined, undefined, true)
-                .addAttribute('aSides', this._buffer, 2, true, TYPES.FLOAT, undefined, undefined, true)
+                .addAttribute('aPoint1', this._buffer, 2, false, TYPES.FLOAT, undefined, undefined, true)
+                .addAttribute('aSides', this._buffer, 2, false, TYPES.FLOAT, undefined, undefined, true)
                 .addAttribute('aQuad', this._quad, 2, false, TYPES.FLOAT)
                 .addIndex(this._indexBuffer);
         }
@@ -289,6 +289,7 @@ void main(void) {
                     _floatView[j++] = k;
                 }
             }
+            this._buffer.update();
             this.instanceCount = Math.round(points.length / stridePoints - 1);
 
             this.lastPointNum = this.lastLen;
@@ -308,10 +309,10 @@ void main(void) {
             }
             this.legacyGeom = new PIXI.Geometry();
             this.legacyBuffer = new PIXI.Buffer(new Float32Array(0), false, false);
-            this.addAttribute('aPoint0', this._buffer, 2, false, TYPES.FLOAT, undefined, undefined, true)
-                .addAttribute('aPoint1', this._buffer, 2, true, TYPES.FLOAT, undefined, undefined, true)
-                .addAttribute('aSides', this._buffer, 2, true, TYPES.FLOAT, undefined, undefined, true)
-                .addAttribute('aQuad', this._quad, 2, false, TYPES.FLOAT)
+            this.legacyGeom.addAttribute('aPoint0', this.legacyBuffer, 2, false, TYPES.FLOAT)
+                .addAttribute('aPoint1', this.legacyBuffer, 2, false, TYPES.FLOAT)
+                .addAttribute('aSides', this.legacyBuffer, 2, false, TYPES.FLOAT)
+                .addAttribute('aQuad', this.legacyBuffer, 2, false, TYPES.FLOAT)
                 .addIndex(new PIXI.Buffer(new Uint16Array([0, 1, 2, 0, 2, 3]), false, true));
         }
 
