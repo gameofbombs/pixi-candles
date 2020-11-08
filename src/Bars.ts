@@ -134,10 +134,10 @@ void main(void) {
         }
 
         clearBufferData() {
-            const {points, strideBytes} = this;
+            const {points, strideBytes, stridePoints} = this;
             this.lastPointNum = 0;
             this.lastPointData = 0;
-            const arrBuf = new ArrayBuffer(strideBytes * points.length);
+            const arrBuf = new ArrayBuffer(strideBytes * points.length / stridePoints);
             this.lastLen = points.length;
             this._floatView = new Float32Array(arrBuf);
             this._u32View = new Uint32Array(arrBuf);
@@ -267,15 +267,13 @@ void main(void) {
 
             renderer.setContextTransform(this.transform.worldTransform);
 
+            context.beginPath();
             let clr = -1;
             for (let i = 0; i < points.length; i += 5) {
                 if (clr !== points[i + 4]) {
                     clr = points[i + 4];
-                    let fill = clr.toString(16);
-                    while (fill.length < 6) {
-                        fill = '0' + fill;
-                    }
-                    context.fillStyle = '#' + fill;
+                    let fill = PIXI.utils.hex2string(clr);
+                    context.fillStyle = fill;
                 }
                 context.beginPath();
                 context.rect(points[i], points[i + 1], points[i + 2], points[i + 3]);
