@@ -8,10 +8,11 @@ const plot = new PIXI.candles.Plot();
 // plot.lineStyle(5);
 
 // native scaling
-plot.lineStyle(0, 2);
+plot.lineStyle(0, 10);
 
 // view geometry!
-// PIXI.utils.hex2rgb(0xff0000, plot.shader.uniforms.uGeomColor);
+plot.tint = 0xff0000;
+PIXI.utils.hex2rgb(0xffffff, plot.shader.uniforms.uGeomColor);
 
 const s = 30;
 const t = 1 * s , u = 5 * s;

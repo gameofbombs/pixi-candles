@@ -173,6 +173,7 @@ void main(void) {
             this.reset();
         }
 
+        jointStyle = PIXI.LINE_JOIN.BEVEL;
         lastLen = 0;
         lastPointNum = 0;
         lastPointData = 0;
@@ -264,6 +265,7 @@ void main(void) {
             }
 
             const {_floatView, _u32View} = this;
+            const bevel = this.jointStyle === PIXI.LINE_JOIN.BEVEL;
             this.lastPointData = Math.min(this.lastPointData, this.lastPointNum);
             let j = Math.round(this.lastPointNum * strideFloats / stridePoints); //actually that's int division
             for (let i = this.lastPointNum; i < points.length - stridePoints; i += stridePoints) {
@@ -276,15 +278,33 @@ void main(void) {
                 _floatView[j++] = points[next];
                 _floatView[j++] = points[next + 1];
 
-                const k = (points[next + 1] - points[i + 1]) / (points[next] - points[i])
+                const dx = points[next] - points[i];
+                const dy = points[next + 1] - points[i + 1];
+                const D = Math.sqrt(dx * dx + dy * dy);
+
+                const k = dy / dx;
                 if (prev >= 0) {
-                    _floatView[j++] = (points[i + 1] - points[prev + 1]) / (points[i] - points[prev]);
+                    const dx2 = points[i] - points[prev];
+                    const dy2 = points[i + 1] - points[prev + 1];
+                    if (bevel) {
+                        const D2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+                        _floatView[j++] = (dy2 * D + dy * D2) / (dx2 * D + dx * D2);
+                    } else {
+                        _floatView[j++] = dy2 / dx2;
+                    }
                 } else {
                     _floatView[j++] = k;
                 }
 
                 if (next2 < points.length) {
-                    _floatView[j++] = (points[next2 + 1] - points[next + 1]) / (points[next2] - points[next]);
+                    const dx2 = points[next2] - points[next];
+                    const dy2 = points[next2 + 1] - points[next + 1];
+                    if (bevel) {
+                        const D2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+                        _floatView[j++] = (dy2 * D + dy * D2) / (dx2 * D + dx * D2);
+                    } else {
+                        _floatView[j++] = dy2 / dx2;
+                    }
                 } else {
                     _floatView[j++] = k;
                 }
@@ -344,9 +364,29 @@ void main(void) {
         }
     }
 
+    export interface PlotOptions {
+        lineWidth?: number;
+        nativeLineWidth?: number;
+        jointStyle?: PIXI.LINE_JOIN;
+    }
+
     export class Plot extends PIXI.Mesh {
-        constructor() {
-            super(new PlotGeometry(), new PlotShader());
+        constructor(options: PlotOptions) {
+            const geometry = new PlotGeometry();
+            const shader = new PlotShader();
+            if (options) {
+                if (options.jointStyle !== undefined) {
+                    geometry.jointStyle = options.jointStyle;
+                }
+                if (options.lineWidth !== undefined) {
+                    shader.uniforms.lineWidth[0] = options.lineWidth;
+                }
+                if (options.nativeLineWidth !== undefined) {
+                    shader.uniforms.lineWidth[1] = options.nativeLineWidth;
+                }
+            }
+
+            super(geometry, shader);
         }
 
         moveTo(x: number, y: number) {
@@ -364,19 +404,19 @@ void main(void) {
             geometry.lineBy(x, y);
         }
 
-        /**
-         * miterLimit is in %
-         */
-        lineStyle(width: number, nativeWidth: number, miterLimit: number) {
+        lineStyle(width?: number, nativeWidth?: number, jointStyle?: number) {
+            const geometry = this.geometry as PlotGeometry;
             if (width !== undefined) {
+
                 this.shader.uniforms.lineWidth[0] = width;
             }
             if (nativeWidth !== undefined) {
                 this.shader.uniforms.lineWidth[1] = nativeWidth;
             }
-            if (miterLimit !== undefined) {
-                this.shader.uniforms.miterLimit = miterLimit;
+            if (jointStyle !== undefined) {
+                geometry.jointStyle = jointStyle;
             }
+            geometry.invalidate();
         }
 
         _renderDefault(renderer: PIXI.Renderer): void {
@@ -419,7 +459,7 @@ void main(void) {
             context.beginPath();
             context.moveTo(points[0], points[1]);
             for (let i = 2; i < points.length; i += stridePoints) {
-                context.lineTo(points[i], points[i+1]);
+                context.lineTo(points[i], points[i + 1]);
             }
             context.stroke();
             context.beginPath();
