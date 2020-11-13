@@ -1,5 +1,5 @@
 namespace pixi_candles {
-    const barVert = `
+    const plotVert = `
 attribute vec2 aPoint0;
 attribute vec2 aPoint1;
 attribute vec2 aSides;
@@ -75,7 +75,7 @@ void main(void) {
     vPixelPos = vec4(pos - 0.5, pos + 0.5);
     gl_Position = vec4((projectionMatrix * vec3(pos / resolution, 1.0)).xy, 0.0, 1.0);
 }`;
-    const barFrag = `
+    const plotFrag = `
 varying vec3 line;
 varying vec3 lineLeft;
 varying vec3 lineRight;
@@ -146,7 +146,7 @@ void main(void) {
 
         static getProgram(): PIXI.Program {
             if (!PlotShader._prog) {
-                PlotShader._prog = new PIXI.Program(barVert, barFrag);
+                PlotShader._prog = new PIXI.Program(plotVert, plotFrag);
             }
             return PlotShader._prog;
         }
@@ -177,6 +177,7 @@ void main(void) {
         lastLen = 0;
         lastPointNum = 0;
         lastPointData = 0;
+        updateId = 0;
         points: Array<number> = [];
         _floatView: Float32Array = null;
         _u32View: Uint32Array = null;
@@ -227,12 +228,14 @@ void main(void) {
 
         invalidate(pointNum = 0) {
             this.lastPointNum = Math.min(pointNum, this.lastPointNum);
+            this.updateId++;
         }
 
         reset() {
             if (this.lastLen > 0) {
                 this.clearBufferData();
             }
+            this.updateId++;
             this.lastLen = 0;
             this.lastPointData = 0;
             this.points.length = 0;

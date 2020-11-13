@@ -17,6 +17,19 @@ const plot = new PIXI.candles.Plot({
     lineWidth: 2,
 });
 
+const grad = new PIXI.candles.PlotGradient();
+// grad.colorTop = 0x026FD3;
+// grad.colorBottom = 0x0;
+// grad.alphaTop = 0.2;
+grad.alphaBottom = 0.2;
+grad.colorTop = 0xF8FAFD;
+grad.colorBottom = 0x036FD3;
+grad.alphaTop = 1.0;
+grad.alphaBottom = 0.8;
+grad.masterPlot = plot;
+grad.coordTop = 0;
+grad.coordBottom = app.screen.height;
+
 // view geometry!
 plot.tint = 0x1571D6;
 // PIXI.utils.hex2rgb(0x1370CD, plot.shader.uniforms.uGeomColor);
@@ -27,4 +40,4 @@ for (let i=0;i<vals.length;i++) {
     plot.lineTo(vals[i].x, vals[i].y);
 }
 
-app.stage.addChild(plot);
+app.stage.addChild(grad, plot);
