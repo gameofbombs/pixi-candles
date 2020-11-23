@@ -221,8 +221,9 @@ void main(void)
             if (this.masterPlot) {
                 const plotGeom = this.masterPlot.geometry as PlotGeometry;
                 if (this.plotUpdateId !== plotGeom.updateId) {
-                    this.plotUpdateId = plotGeom.updateId
+                    this.plotUpdateId = plotGeom.updateId;
                     geom.points = plotGeom.points;
+                    geom.invalidate();
                 }
             }
             geom.updateBuffer();
