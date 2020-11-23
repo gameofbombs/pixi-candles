@@ -35,6 +35,7 @@ void main(void)
             color = colorTop + (colorBottom - colorTop) * (vOrdinate - rangeY2.x) / (rangeY2.y - rangeY2.x);
         }
     }
+
     color.rgb *= color.a;
     gl_FragColor = color * uColor;
 }
@@ -108,7 +109,8 @@ void main(void)
             const {points, strideFloats, stridePoints} = this;
             this.lastPointNum = 0;
             this.lastPointData = 0;
-            this._floatView = new Float32Array(strideFloats * (points.length / stridePoints - 1));
+            const arrayLen = Math.max(0, points.length / stridePoints - 1);
+            this._floatView = new Float32Array(strideFloats * arrayLen);
             this._buffer.update(this._floatView);
             this.lastLen = points.length;
         }

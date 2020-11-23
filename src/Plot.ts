@@ -245,7 +245,8 @@ void main(void) {
             const {points, strideBytes, stridePoints} = this;
             this.lastPointNum = 0;
             this.lastPointData = 0;
-            const arrBuf = new ArrayBuffer(strideBytes * (points.length / stridePoints - 1));
+            const arrayLen = Math.max(0, points.length / stridePoints - 1);
+            const arrBuf = new ArrayBuffer(strideBytes * arrayLen);
             this.lastLen = points.length;
             this._floatView = new Float32Array(arrBuf);
             this._u32View = new Uint32Array(arrBuf);
