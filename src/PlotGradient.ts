@@ -92,6 +92,18 @@ void main(void)
         strideFloats = 2 * 6;
         strideBytes = 8 * 6;
 
+        moveTo(x: number, y: number) {
+            const {points} = this;
+            points.push(x);
+            points.push(y);
+        }
+
+        lineTo(x: number, y: number) {
+            const {points} = this;
+            points.push(x);
+            points.push(y);
+        }
+
         invalidate(pointNum = 0) {
             this.lastPointNum = Math.min(pointNum, this.lastPointNum);
         }
@@ -219,6 +231,16 @@ void main(void)
         clear() {
             if (!this.masterPlot) {
                 (this.geometry as PlotGradientGeometry).reset();
+            }
+        }
+
+        moveTo(x: number, y: number) {
+            this.lineTo(x, y);
+        }
+
+        lineTo(x: number, y: number) {
+            if (!this.masterPlot) {
+                (this.geometry as PlotGradientGeometry).lineTo(x, y);
             }
         }
 
