@@ -95,7 +95,7 @@ void main(void) {
         _indexBuffer: PIXI.Buffer = null;
 
         initGeom(_static: boolean) {
-            this._buffer = new PIXI.Buffer(null, _static, false);
+            this._buffer = new PIXI.Buffer(new Float32Array(0), _static, false);
 
             this._quad = new PIXI.Buffer(new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), true, false);
 
@@ -131,6 +131,7 @@ void main(void) {
             this.lastLen = 0;
             this.lastPointData = 0;
             this.points.length = 0;
+            this.instanceCount = 0;
         }
 
         clearBufferData() {
@@ -148,7 +149,7 @@ void main(void) {
             const {points, stridePoints, strideFloats} = this;
 
             if (this.lastLen > points.length) {
-                this.lastLen = 0;
+                this.lastLen = -1;
             }
             if (this.lastLen < points.length
                 || this.lastPointNum < this.lastLen) { // TODO: partial upload
@@ -248,6 +249,9 @@ void main(void) {
                 geometry.initLegacy();
             }
             geometry.updateBuffer();
+            if (geometry.instanceCount === 0) {
+                return;
+            }
             const rt = renderer.renderTexture.current;
             this.shader.uniforms.resolution = rt ? rt.baseTexture.resolution : renderer.resolution;
 

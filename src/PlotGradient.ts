@@ -83,7 +83,7 @@ void main(void)
         _buffer: PIXI.Buffer = null;
 
         initGeom(_static: boolean) {
-            this._buffer = new PIXI.Buffer(null, _static, false);
+            this._buffer = new PIXI.Buffer(new Float32Array(0), _static, false);
 
             this.addAttribute('aVertexPosition', this._buffer, 2, false, TYPES.FLOAT);
         }
@@ -119,7 +119,7 @@ void main(void)
             const {points, stridePoints, strideFloats} = this;
 
             if (this.lastLen > points.length) {
-                this.lastLen = 0;
+                this.lastLen = -1;
             }
             if (this.lastLen < points.length
                 || this.lastPointNum < this.lastLen) { // TODO: partial upload
@@ -215,6 +215,12 @@ void main(void)
 
         masterPlot: Plot = null;
         plotUpdateId = -1;
+
+        clear() {
+            if (!this.masterPlot) {
+                (this.geometry as PlotGradientGeometry).reset();
+            }
+        }
 
         _render(renderer: PIXI.Renderer): void {
             const geom = this.geometry as PlotGradientGeometry;
