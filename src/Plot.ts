@@ -57,7 +57,7 @@ void main(void) {
 
     //always round to the left
     vec2 sign = aQuad;
-    sign.x = 0.0;
+    sign.x = 0.5;
 
     float H = 0.0;
     if (aQuad.x < 0.5) {
@@ -70,7 +70,7 @@ void main(void) {
     H += 2.0;
     pos.y += H * (aQuad.y * 2.0 - 1.0);
 
-    pos.y -= (pos.x - floor(pos.x + eps)) * line.x;
+    pos.y -= (pos.x - floor(pos.x + eps + sign.x)) * line.x;
     pos = floor(pos + eps + sign * (1.0 - 2.0 * eps));
     vPixelPos = vec4(pos - 0.5, pos + 0.5);
     gl_Position = vec4((projectionMatrix * vec3(pos / resolution, 1.0)).xy, 0.0, 1.0);
