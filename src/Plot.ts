@@ -55,9 +55,11 @@ void main(void) {
     // calculating quad
     vec2 pos = vec2(0.0);
 
-    //always round to the left
     vec2 sign = aQuad;
-    sign.x = 0.5;
+    // strange rounding
+    if (abs(line.x) < 10.0 && p1.x - p0.x > 3.0) {
+        sign.x = 0.5;
+    }
 
     float H = 0.0;
     if (aQuad.x < 0.5) {
