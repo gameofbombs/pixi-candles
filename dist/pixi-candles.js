@@ -394,7 +394,9 @@ var pixi_candles;
     var ExtraLineGraphics = (function (_super) {
         __extends(ExtraLineGraphics, _super);
         function ExtraLineGraphics() {
-            return _super.call(this, new ExtraGraphicsGeometry()) || this;
+            var _this = _super.call(this, new ExtraGraphicsGeometry()) || this;
+            _this._fixedCircle = false;
+            return _this;
         }
         ExtraLineGraphics.prototype._render = function (r) {
             _super.prototype._render.call(this, r);
@@ -402,6 +404,9 @@ var pixi_candles;
             if (g._meshGeom) {
                 if (!this._subMesh) {
                     this._subMesh = new LineMesh(g._meshGeom);
+                    if (this._fixedCircle) {
+                        this._subMesh.shader.uniforms.uCap = 0;
+                    }
                 }
                 else {
                     this._subMesh.geometry = g._meshGeom;
@@ -411,6 +416,12 @@ var pixi_candles;
                 this._subMesh.buildShader(r);
                 this._subMesh._renderDefault(r);
             }
+        };
+        ExtraLineGraphics.prototype.fixCircle = function () {
+            if (this._subMesh) {
+                this._subMesh.shader.uniforms.uCap = 0;
+            }
+            this._fixedCircle = true;
         };
         return ExtraLineGraphics;
     }(PIXI.Graphics));

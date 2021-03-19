@@ -343,6 +343,8 @@ ${
             super(new ExtraGraphicsGeometry());
         }
 
+        _fixedCircle: boolean = false;
+
         _render(r: PIXI.Renderer) {
             super._render(r);
 
@@ -350,6 +352,9 @@ ${
             if (g._meshGeom) {
                 if (!this._subMesh) {
                     this._subMesh = new LineMesh(g._meshGeom);
+                    if (this._fixedCircle) {
+                        this._subMesh.shader.uniforms.uCap = 0;
+                    }
                 } else {
                     //@ts-ignore
                     this._subMesh.geometry = g._meshGeom;
@@ -361,6 +366,13 @@ ${
                 this._subMesh.buildShader(r);
                 this._subMesh._renderDefault(r);
             }
+        }
+
+        fixCircle() {
+            if (this._subMesh) {
+                this._subMesh.shader.uniforms.uCap = 0;
+            }
+            this._fixedCircle = true;
         }
     }
 }

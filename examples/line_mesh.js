@@ -21,6 +21,8 @@ graph.drawRect(0, 300, 200, 200);
 graph.lineStyle({ width: 5 });
 graph.drawCircle(400, 400, 100);
 
+//graph.fixCircle();
+
 graph.closePath();
 
 app.stage.addChild(graph);

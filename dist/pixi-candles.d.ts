@@ -57,7 +57,9 @@ declare namespace PIXI.candles {
     class ExtraLineGraphics extends PIXI.Graphics {
         _subMesh: LineMesh;
         constructor();
+        _fixedCircle: boolean;
         _render(r: PIXI.Renderer): void;
+        fixCircle(): void;
     }
 }
 declare namespace PIXI.candles {
