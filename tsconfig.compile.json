@@ -1,13 +1,14 @@
 {
     "compilerOptions": {
-        "target": "es6",
+        "target": "es5",
         "noImplicitAny": true,
         "removeComments": true,
         "preserveConstEnums": true,
+        "outDir": "compile",
         "sourceMap": true,
         "inlineSources": true,
         "declaration": true,
-        "esModuleInterop": true,
+        "emitDeclarationOnly": true,
         "moduleResolution": "node",
         "allowSyntheticDefaultImports": true
     },
