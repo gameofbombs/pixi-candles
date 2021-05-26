@@ -1,5 +1,6 @@
-import {GraphicsData, GraphicsGeometry, LINE_CAP, LINE_JOIN, GRAPHICS_CURVES} from '@pixi/graphics';
+import {GraphicsData, LINE_CAP, LINE_JOIN, GRAPHICS_CURVES} from '@pixi/graphics';
 import {Point, Polygon, SHAPES} from '@pixi/math';
+import {SmoothGraphicsGeometry} from './SmoothGraphicsGeometry';
 
 function square(
     x: number,
@@ -133,7 +134,7 @@ function round(
     return segCount * 2;
 }
 
-function buildNonNativeLine(graphicsData: GraphicsData, graphicsGeometry: GraphicsGeometry): void
+function buildNonNativeLine(graphicsData: GraphicsData, graphicsGeometry: SmoothGraphicsGeometry): void
 {
     const shape = graphicsData.shape as Polygon;
     let points = graphicsData.points || shape.points.slice();
@@ -491,6 +492,6 @@ function buildNonNativeLine(graphicsData: GraphicsData, graphicsGeometry: Graphi
     }
 }
 
-export function smoothBuildLine(graphicsData: GraphicsData, graphicsGeometry: GraphicsGeometry): void {
+export function smoothBuildLine(graphicsData: GraphicsData, graphicsGeometry: SmoothGraphicsGeometry): void {
     return buildNonNativeLine(graphicsData, graphicsGeometry);
 }
