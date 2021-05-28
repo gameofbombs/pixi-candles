@@ -1,0 +1,13 @@
+export enum JOINT_TYPE {
+    FILL = 0,
+    JOINT_CAP_BUTT = 8,
+    JOINT_CAP_SQUARE = 9,
+    JOINT_CAP_ROUND = 10,
+    JOINT_BEVEL = 11,
+    JOINT_ROUND = 12,
+    JOINT_MITER = 13,
+    JOINT_MITER_GOOD = 14,
+    CAP_BUTT = 16,
+    CAP_SQUARE = 17,
+    CAP_ROUND = 18,
+}

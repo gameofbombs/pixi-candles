@@ -579,14 +579,14 @@ export class SmoothGraphics extends Container
             //     gI.attribStart * 4 * 2,
             //     gI.attribSize * 2);
 
-            const indices = new Uint16Array(geometry.indicesUint16.buffer,
-                gI.start * 2,
-                gI.size);
+            // const indices = new Uint16Array(geometry.indicesUint16.buffer,
+            //     gI.start * 2,
+            //     gI.size);
 
             const batch = {
                 vertexData,
                 blendMode,
-                indices,
+                // indices,
                 // uvs,
                 _batchRGB: hex2rgb(color) as Array<number>,
                 _tintRGB: color,
