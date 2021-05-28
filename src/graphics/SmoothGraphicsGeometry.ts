@@ -409,11 +409,11 @@ export class SmoothGraphicsGeometry extends Geometry {
 
                 const nextTexture = style.texture.baseTexture;
                 const index = this.indices.length;
-                const attribIndex = this.points.length / this.stridePoints;
+                const attribIndex = this.points.length / 2;
 
                 nextTexture.wrapMode = WRAP_MODES.REPEAT;
 
-                const size = (this.points.length / this.stridePoints) - attribIndex;
+                const size = (this.points.length / 2) - attribIndex;
 
                 if (size === 0) continue;
                 // close batch if style is different
