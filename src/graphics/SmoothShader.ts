@@ -1,11 +1,12 @@
 import {AbstractBatchRenderer, BatchShaderGenerator} from "@pixi/core";
 
 const vert = `precision highp float;
-attribute vec2 aVertexPosition;
-attribute vec2 aBisector;
-attribute vec2 aNormal;
-attribute vec2 aWidths;
-attribute float side;
+attribute vec2 aPrev;
+attribute vec2 aPoint1;
+attribute vec2 aPoint2;
+attribute vec2 aNext;
+attribute float aLineStyle;
+attribute float aVertexJoint;
 attribute vec4 aColor;
 
 uniform mat3 projectionMatrix;

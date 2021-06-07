@@ -26,6 +26,7 @@ import {Bounds} from '@pixi/display';
 
 import type {Circle, Ellipse, Polygon, Rectangle, RoundedRectangle, IPointData} from '@pixi/math';
 import {BuildData} from "./core/BuildData";
+import {SegmentPacker} from "./core/SegmentPacker";
 
 /*
  * Complex shape type
@@ -90,6 +91,10 @@ export class SmoothGraphicsGeometry extends Geometry {
     drawCalls: Array<BatchDrawCall>;
     batchDirty: number;
     batches: Array<SmoothBatchPart>;
+    packer: SegmentPacker;
+    packSize: number;
+    pack32index: boolean;
+    strideFloats: number;
 
     protected dirty: number;
     protected cacheDirty: number;
@@ -101,16 +106,18 @@ export class SmoothGraphicsGeometry extends Geometry {
 
     _buffer: Buffer;
     _indexBuffer: Buffer;
-    strideFloats: number;
+    _bufferFloats: Float32Array;
+    _bufferUint: Uint32Array;
 
     initAttributes(_static: boolean) {
         this._buffer = new Buffer(null, _static, false);
+        this._bufferFloats = new Float32Array();
+        this._bufferUint = new Uint32Array();
+
         this._indexBuffer = new Buffer(null, _static, true);
-        //segment - two points
-        this.addAttribute('aSegment', this._buffer, 4, false, TYPES.FLOAT)
-            // bisect or two extra vectors
-            .addAttribute('aPrev', this._buffer, 2, false, TYPES.FLOAT)
-            // bisect or two extra vectors
+        this.addAttribute('aPrev', this._buffer, 2, false, TYPES.FLOAT)
+            .addAttribute('aPoint1', this._buffer, 2, false, TYPES.FLOAT)
+            .addAttribute('aPoint2', this._buffer, 2, false, TYPES.FLOAT)
             .addAttribute('aNext', this._buffer, 2, false, TYPES.FLOAT)
             // number of vertex
             .addAttribute('aVertexJoint', this._buffer, 1, false, TYPES.FLOAT)
@@ -120,7 +127,7 @@ export class SmoothGraphicsGeometry extends Geometry {
             .addAttribute('aColor', this._buffer, 4, true, TYPES.UNSIGNED_BYTE)
             .addIndex(this._indexBuffer);
 
-        this.strideFloats = 11;
+        this.strideFloats = 9;
     }
 
     constructor() {
@@ -157,6 +164,18 @@ export class SmoothGraphicsGeometry extends Geometry {
         this.batchable = false;
 
         this.indicesUint16 = null;
+
+        this.packer = null;
+        this.packSize = 0;
+        this.pack32index = null;
+    }
+
+    public checkInstancing(instanced: boolean, allow32Indices: boolean) {
+        if (!this.packer) {
+            return;
+        }
+        this.packer = new SegmentPacker();
+        this.pack32index = allow32Indices;
     }
 
     /**
@@ -184,6 +203,7 @@ export class SmoothGraphicsGeometry extends Geometry {
         this.batchDirty++;
         this.shapeBuildIndex = 0;
         this.shapeBatchIndex = 0;
+        this.packSize = 0;
 
         this.buildData.clear();
 
@@ -376,7 +396,7 @@ export class SmoothGraphicsGeometry extends Geometry {
             return;
         }
 
-        const {buildData, graphicsData} = this;
+        const {buildData, graphicsData, packer} = this;
         const len = graphicsData.length;
 
         this.cacheDirty = this.dirty;
@@ -408,37 +428,38 @@ export class SmoothGraphicsGeometry extends Geometry {
                 if (!style.visible) continue;
 
                 const nextTexture = style.texture.baseTexture;
-                const index = this.indices.length;
-                const attribIndex = this.points.length / 2;
+                const attribOld = buildData.vertexSize;
 
                 nextTexture.wrapMode = WRAP_MODES.REPEAT;
 
-                const size = (this.points.length / 2) - attribIndex;
+                if (j === 0) {
+                    this.packer.updateBufferSize(data.fillStart, data.fillLen, data.triangles.length, buildData);
+                } else {
+                    this.packer.updateBufferSize(data.strokeStart, data.strokeLen, data.triangles.length, buildData);
+                }
 
-                if (size === 0) continue;
+                const attribSize = buildData.vertexSize;
+                const indexSize = buildData.indexSize;
+
+                if (attribSize === attribOld) continue;
                 // close batch if style is different
                 if (batchPart && !this._compareStyles(currentStyle, style)) {
-                    batchPart.end(index, attribIndex);
+                    batchPart.end(indexSize, attribSize);
                     batchPart = null;
                 }
                 // spawn new batch if its first batch or previous was closed
                 if (!batchPart) {
                     batchPart = BATCH_POOL.pop() || new BatchPart();
-                    batchPart.begin(style, index, attribIndex);
+                    batchPart.begin(style, indexSize, attribSize);
                     this.batches.push(batchPart);
                     currentStyle = style;
                 }
-
-                this.addUvs(this.points, uvs, style.texture, attribIndex, size, style.matrix);
             }
         }
         this.shapeBatchIndex = len;
 
-        const index = this.indices.length;
-        const attrib = this.points.length / this.stridePoints;
-
         if (batchPart) {
-            batchPart.end(index, attrib);
+            batchPart.end(buildData.indexSize, buildData.vertexSize);
         }
 
         if (this.batches.length === 0) {
@@ -449,24 +470,67 @@ export class SmoothGraphicsGeometry extends Geometry {
             return;
         }
 
-        // prevent allocation when length is same as buffer
-        if (this.indicesUint16 && this.indices.length === this.indicesUint16.length) {
-            this.indicesUint16.set(this.indices);
-        } else {
-            const need32
-                = attrib > 0xffff && allow32Indices;
-
-            this.indicesUint16 = need32 ? new Uint32Array(this.indices) : new Uint16Array(this.indices);
-        }
-
         // TODO make this a const..
         this.batchable = this.isBatchable();
 
         if (this.batchable) {
             this.packBatches();
         } else {
+            this.updatePack();
             this.buildDrawCalls();
         }
+    }
+
+    updatePack() {
+        const { vertexSize, indexSize } = this.buildData;
+
+        if (this.packSize === vertexSize) {
+            return;
+        }
+
+        const { strideFloats, packer, buildData } = this;
+        const buffer = this._buffer;
+        const index = this._indexBuffer;
+        const floatsSize = vertexSize * strideFloats;
+
+        if (buffer.data.length !== floatsSize) {
+            const arrBuf = new ArrayBuffer(floatsSize * 4);
+            this._bufferFloats = new Float32Array(arrBuf);
+            this._bufferUint = new Uint32Array(arrBuf);
+            buffer.data = new Float32Array(floatsSize);
+        }
+        if (index.data.length !== indexSize) {
+            if (vertexSize > 0xffff && this.pack32index) {
+                index.data = new Uint16Array();
+            } else {
+                index.data = new Uint32Array();
+            }
+        }
+
+        packer.beginPack(buildData, this._bufferFloats, this._bufferUint, index.data as Uint16Array);
+
+        for (let i=0; i < this.graphicsData.length; i++) {
+            const data = this.graphicsData[i];
+
+            if (data.fillLen) {
+                const lineStyle = 0;
+                const color = data.fillStyle.color;
+                const rgb = (color >> 16) + (color & 0xff00) + ((color & 0xff) << 16);
+                const rgba = premultiplyTint(rgb, data.lineStyle.alpha);
+
+                packer.packInterleavedGeometry(data.fillStart, data.fillLen, data.triangles, lineStyle, rgba);
+            }
+            if (data.strokeLen) {
+                const lineStyle = data.lineStyle.width;
+                const color = data.lineStyle.color;
+                const rgb = (color >> 16) + (color & 0xff00) + ((color & 0xff) << 16);
+                const rgba = premultiplyTint(rgb, data.lineStyle.alpha);
+
+                packer.packInterleavedGeometry(data.fillStart, data.fillLen, data.triangles, lineStyle, rgba);
+            }
+        }
+
+        this.packSize = vertexSize;
     }
 
     /**
@@ -542,27 +606,23 @@ export class SmoothGraphicsGeometry extends Geometry {
         }
     }
 
-    /**
-     * Checks to see if this graphics geometry can be batched.
-     * Currently it needs to be small enough and not contain any native lines.
-     *
-     * @protected
-     */
     protected isBatchable(): boolean {
+        return false;
+
         // prevent heavy mesh batching
-        if (this.points.length > 0xffff * 2) {
-            return false;
-        }
-
-        const batches = this.batches;
-
-        for (let i = 0; i < batches.length; i++) {
-            if ((batches[i].style as LineStyle).native) {
-                return false;
-            }
-        }
-
-        return (this.points.length < SmoothGraphicsGeometry.BATCHABLE_SIZE * 2);
+        // if (this.points.length > 0xffff * 2) {
+        //     return false;
+        // }
+        //
+        // const batches = this.batches;
+        //
+        // for (let i = 0; i < batches.length; i++) {
+        //     if ((batches[i].style as LineStyle).native) {
+        //         return false;
+        //     }
+        // }
+        //
+        // return (this.points.length < SmoothGraphicsGeometry.BATCHABLE_SIZE * 2);
     }
 
     /**
@@ -579,9 +639,6 @@ export class SmoothGraphicsGeometry extends Geometry {
         }
 
         this.drawCalls.length = 0;
-
-        const colors = this.colors;
-        const textureIds = this.textureIds;
 
         let currentGroup: BatchDrawCall = DRAW_CALL_POOL.pop();
 
@@ -668,81 +725,11 @@ export class SmoothGraphicsGeometry extends Geometry {
 
             textureId = nextTexture._batchLocation;
 
-            this.addColors(colors, style.color, style.alpha, data.attribSize);
-            this.addTextureIds(textureIds, textureId, data.attribSize);
+            // this.addColors(colors, style.color, style.alpha, data.attribSize);
+            // this.addTextureIds(textureIds, textureId, data.attribSize);
         }
 
         BaseTexture._globalBatch = TICK;
-
-        // upload..
-        // merge for now!
-        this.packAttributes();
-    }
-
-    /**
-     * Packs attributes to single buffer.
-     *
-     * @protected
-     */
-    protected packAttributes(): void {
-        const verts = this.points;
-        const uvs = this.uvs;
-        const colors = this.colors;
-        const textureIds = this.textureIds;
-
-        // verts are 2 positions.. so we * by 3 as there are 6 properties.. then 4 cos its bytes
-        const glPoints = new ArrayBuffer(verts.length * 3 * 4);
-        const f32 = new Float32Array(glPoints);
-        const u32 = new Uint32Array(glPoints);
-
-        let p = 0;
-
-        for (let i = 0; i < verts.length / 2; i++) {
-            f32[p++] = verts[i * 2];
-            f32[p++] = verts[(i * 2) + 1];
-
-            f32[p++] = uvs[i * 2];
-            f32[p++] = uvs[(i * 2) + 1];
-
-            u32[p++] = colors[i];
-
-            f32[p++] = textureIds[i];
-        }
-
-        this._buffer.update(glPoints);
-        this._indexBuffer.update(this.indicesUint16);
-    }
-
-    /**
-     * Process fill part of Graphics.
-     *
-     * @param {PIXI.SmoothGraphicsData} data
-     * @protected
-     */
-    protected processFill(data: SmoothGraphicsData): void {
-        if (data.holes.length) {
-            this.processHoles(data.holes);
-
-            smoothBuildPoly.triangulate(data, this);
-        } else {
-            const command = FILL_COMMANDS[data.type];
-
-            smoothBuildPoly.triangulate(data, this);
-        }
-    }
-
-    /**
-     * Process line part of Graphics.
-     *
-     * @param {PIXI.SmoothGraphicsData} data
-     * @protected
-     */
-    protected processLine(data: SmoothGraphicsData): void {
-        smoothBuildLine(data, this as any);
-
-        for (let i = 0; i < data.holes.length; i++) {
-            smoothBuildLine(data.holes[i], this as any);
-        }
     }
 
     protected processHoles(holes: Array<SmoothGraphicsData>): void {

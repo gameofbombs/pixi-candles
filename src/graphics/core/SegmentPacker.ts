@@ -3,17 +3,17 @@ import {SmoothGraphicsData} from "./SmoothGraphicsData";
 import {JOINT_TYPE} from "./const";
 
 export class SegmentPacker {
-    strideFloats = 9;
-
     static vertsByJoint: Array<number> = [];
 
-    updateBufferSize(jointStart: number, jointEnd: number, triangles: number, target: BuildData) {
+    strideFloats = 11;
+
+    updateBufferSize(jointStart: number, jointLen: number, triangles: number, target: BuildData) {
         const {joints} = target;
         let foundTriangle = false;
 
         let vertexSize = 0;
         let indexSize = 0;
-        for (let i = jointStart; i < jointEnd; i++) {
+        for (let i = jointStart; i < jointStart + jointLen; i++) {
             const joint = joints[i];
 
             if (joint === 0) {
@@ -46,11 +46,11 @@ export class SegmentPacker {
     bufferPos = 0;
     indexPos = 0;
     bufFloat: Float32Array;
-    bufUint: Uint8Array;
+    bufUint: Uint32Array;
     indices: Uint16Array;
     buildData: BuildData;
 
-    beginPack(buildData: BuildData, bufFloat: Float32Array, bufUint: Uint8Array, indices: Uint16Array, bufferPos: number = 0, indexPos: number = 0) {
+    beginPack(buildData: BuildData, bufFloat: Float32Array, bufUint: Uint32Array, indices: Uint16Array, bufferPos: number = 0, indexPos: number = 0) {
         this.buildData = buildData;
         this.bufFloat = bufFloat;
         this.bufUint = bufUint;
@@ -109,12 +109,12 @@ export class SegmentPacker {
             type = 1; // The joint
 
             for (let i = 0; i < 4; i++) {
-                bufFloat[bufPos] = x1;
-                bufFloat[bufPos + 1] = y1;
-                bufFloat[bufPos + 2] = x2;
-                bufFloat[bufPos + 3] = y2;
-                bufFloat[bufPos + 4] = prevX;
-                bufFloat[bufPos + 5] = prevY;
+                bufFloat[bufPos] = prevX;
+                bufFloat[bufPos + 1] = prevY;
+                bufFloat[bufPos + 2] = x1;
+                bufFloat[bufPos + 3] = y1;
+                bufFloat[bufPos + 4] = x2;
+                bufFloat[bufPos + 5] = y2;
                 bufFloat[bufPos + 6] = nextX;
                 bufFloat[bufPos + 7] = nextY;
                 bufFloat[bufPos + 8] = 8 * type + i;

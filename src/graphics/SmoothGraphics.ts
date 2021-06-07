@@ -534,6 +534,8 @@ export class SmoothGraphics extends Container
         // batch part..
         // batch it!
 
+        geometry.checkInstancing(renderer.geometry.hasInstance, hasuint32);
+
         geometry.updateBatches(hasuint32);
 
         if (geometry.batchable)
@@ -683,18 +685,18 @@ export class SmoothGraphics extends Container
             // but may be more than one plugins for graphics
             if (!DEFAULT_SHADERS[pluginName])
             {
-                const MAX_TEXTURES = renderer.plugins.batch.MAX_TEXTURES;
-                const sampleValues = new Int32Array(MAX_TEXTURES);
-
-                for (let i = 0; i < MAX_TEXTURES; i++)
-                {
-                    sampleValues[i] = i;
-                }
+                // const MAX_TEXTURES = renderer.plugins.batch.MAX_TEXTURES;
+                // const sampleValues = new Int32Array(MAX_TEXTURES);
+                //
+                // for (let i = 0; i < MAX_TEXTURES; i++)
+                // {
+                //     sampleValues[i] = i;
+                // }
 
                 const uniforms = {
                     tint: new Float32Array([1, 1, 1, 1]),
                     translationMatrix: new Matrix(),
-                    default: UniformGroup.from({ uSamplers: sampleValues }, true),
+                    //default: UniformGroup.from({ uSamplers: sampleValues }, true),
                 };
 
                 const program = renderer.plugins[pluginName]._shader.program;
