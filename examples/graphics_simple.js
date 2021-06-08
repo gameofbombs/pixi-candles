@@ -39,7 +39,7 @@ graphics.drawCircle(250, 250, 50);
 graphics.endFill();
 
 // Circle + line style 2
-graphics.lineStyle(10, 0xFFBD01, 1);
+graphics.lineStyle(10, 0xFFBD01, 0.5);
 graphics.beginFill(0xC34288, 1);
 graphics.drawCircle(400, 250, 50);
 graphics.endFill();

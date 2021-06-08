@@ -23,6 +23,7 @@ uniform vec4 tint;
 
 varying vec4 vSignedCoord;
 varying vec4 vColor;
+varying vec2 vDistance;
 
 void main(void){
     vec2 pointA = (translationMatrix * vec3(aPoint1, 1.0)).xy;
@@ -37,16 +38,19 @@ void main(void){
     float vertexNum = aVertexJoint - type * 16.0;
     float dx = 0.0, dy = 1.0;
 
+    float resolution = 1.0;
+    float lineWidth = aLineStyle * 0.5;
     vec2 pos;
     if (type == 0.0) {
         pos = pointA;
+        vDistance = vec2(0.0, 1.0);
     } else {
         vec2 prev = (translationMatrix * vec3(aPrev, 1.0)).xy;
         vec2 next = (translationMatrix * vec3(aNext, 1.0)).xy;
 
-        float dy = aLineStyle;
+        float dy = lineWidth + resolution;
         if (vertexNum >= 1.5) {
-            dy = -aLineStyle;
+            dy = -dy;
         }
         vec2 base, bisect, norm2;
         if (vertexNum < 0.5 || vertexNum > 2.5) {
@@ -66,6 +70,8 @@ void main(void){
         } else {
             pos = base + dy * norm;
         }
+
+        vDistance = vec2(dy, lineWidth);
     }
 
     gl_Position = vec4((projectionMatrix * vec3(pos, 1.0)).xy, 0.0, 1.0);
@@ -75,11 +81,15 @@ void main(void){
 
 const frag = `
 varying vec4 vColor;
+varying vec2 vDistance;
 
 //%forloop% %count%
 
 void main(void){
-    gl_FragColor = vColor;
+    float left = max(vDistance.x - 0.5, -vDistance.y);
+    float right = min(vDistance.x + 0.5, vDistance.y);
+
+    gl_FragColor = vColor * (right - left);
 }
 `;
 
