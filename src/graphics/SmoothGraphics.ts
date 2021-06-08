@@ -536,7 +536,7 @@ export class SmoothGraphics extends Container
 
         geometry.checkInstancing(renderer.geometry.hasInstance, hasuint32);
 
-        geometry.updateBatches(hasuint32);
+        geometry.updateBatches();
 
         if (geometry.batchable)
         {

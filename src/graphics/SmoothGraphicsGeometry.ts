@@ -122,12 +122,12 @@ export class SmoothGraphicsGeometry extends Geometry {
             // number of vertex
             .addAttribute('aVertexJoint', this._buffer, 1, false, TYPES.FLOAT)
             // line width, alignment
-            .addAttribute('aLineStyle', this._buffer, 1, true, TYPES.FLOAT)
+            .addAttribute('aLineStyle', this._buffer, 1, false, TYPES.FLOAT)
             // the usual
             .addAttribute('aColor', this._buffer, 4, true, TYPES.UNSIGNED_BYTE)
             .addIndex(this._indexBuffer);
 
-        this.strideFloats = 9;
+        this.strideFloats = 11;
     }
 
     constructor() {
@@ -384,7 +384,7 @@ export class SmoothGraphicsGeometry extends Geometry {
         this.shapeBuildIndex = len;
     }
 
-    updateBatches(allow32Indices?: boolean): void {
+    updateBatches(): void {
         if (!this.graphicsData.length) {
             this.batchable = true;
 
@@ -501,9 +501,9 @@ export class SmoothGraphicsGeometry extends Geometry {
         }
         if (index.data.length !== indexSize) {
             if (vertexSize > 0xffff && this.pack32index) {
-                index.data = new Uint16Array(indexSize);
-            } else {
                 index.data = new Uint32Array(indexSize);
+            } else {
+                index.data = new Uint16Array(indexSize);
             }
         }
 

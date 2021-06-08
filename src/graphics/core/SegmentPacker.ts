@@ -111,6 +111,12 @@ export class SegmentPacker {
                 continue;
             }
 
+            const vs = SegmentPacker.vertsByJoint[joint];
+
+            if (vs !== 4) {
+                break;
+            }
+
             x1 = verts[j * 2];
             y1 = verts[j * 2 + 1];
             x2 = verts[j * 2 + 2];

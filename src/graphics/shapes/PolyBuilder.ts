@@ -71,15 +71,14 @@ export class PolyBuilder implements IShapeBuilder {
             return;
         }
 
-        // 3. for closed shape - add extra points
-        const closedPath = Math.abs(firstPoint.x - lastPoint.x) < eps
-            && Math.abs(firstPoint.y - lastPoint.y) < eps;
-
-        // if the first point is the last point - gonna have issues :)
         if (closedShape) {
-            if (closedPath) {
-                points.pop();
-                points.pop();
+            // first point should be last point in closed line!
+            const closedPath = Math.abs(firstPoint.x - lastPoint.x) < eps
+                && Math.abs(firstPoint.y - lastPoint.y) < eps;
+
+            if (!closedPath) {
+                points.push(points[0]);
+                points.push(points[1]);
             }
         }
     }
@@ -102,7 +101,7 @@ export class PolyBuilder implements IShapeBuilder {
         let cap = graphicsData.capType();
 
         let prevX: number, prevY: number;
-        if (closed) {
+        if (closeStroke) {
             prevX = points[len - 2];
             prevY = points[len - 1];
             joints.push(JOINT_TYPE.CAP_BUTT);
@@ -128,40 +127,46 @@ export class PolyBuilder implements IShapeBuilder {
                 prevY = y1 - dy;
             }
 
-            let endJoint = 0;
             let nextX: number, nextY: number;
+
+            if (i + 4 >= len && !closed) {
+                verts.push(x1, y1);
+                joints.push(cap - JOINT_TYPE.CAP_BUTT + JOINT_TYPE.JOINT_CAP_BUTT);
+                continue;
+
+            }
+
             if (i + 4 < len) {
                 nextX = points[i + 4];
                 nextY = points[i + 5];
-                const dx2 = nextX - x2;
-                const dy2 = nextY - y2;
-
-                if (joint === JOINT_TYPE.JOINT_MITER && dx2 * dx + dy2 * dy < eps) {
-                    endJoint = JOINT_TYPE.JOINT_MITER_GOOD; // its a good miter
-                } else {
-                    endJoint = joint;
-                }
-
-                const D = dx2 * dy - dy2 * dx;
-                if (Math.abs(D) < eps) {
-                    // go in reverse!
-                    switch (joint) {
-                        case JOINT_TYPE.JOINT_ROUND:
-                            endJoint = JOINT_TYPE.JOINT_CAP_ROUND;
-                            break;
-                        case JOINT_TYPE.JOINT_BEVEL:
-                            endJoint = JOINT_TYPE.JOINT_CAP_BUTT;
-                            break;
-                        default:
-                            endJoint = JOINT_TYPE.JOINT_CAP_SQUARE;
-                            break;
-                    }
-                }
             } else {
                 nextX = points[0];
                 nextY = points[1];
-                if (closed) {
-                    endJoint = cap - JOINT_TYPE.CAP_BUTT + JOINT_TYPE.JOINT_CAP_BUTT;
+            }
+
+            const dx2 = nextX - x2;
+            const dy2 = nextY - y2;
+
+            let endJoint: number;
+            if (joint === JOINT_TYPE.JOINT_MITER && dx2 * dx + dy2 * dy < eps) {
+                endJoint = JOINT_TYPE.JOINT_MITER_GOOD; // its a good miter
+            } else {
+                endJoint = joint;
+            }
+
+            const D = dx2 * dy - dy2 * dx;
+            if (Math.abs(D) < eps) {
+                // go in reverse!
+                switch (joint) {
+                    case JOINT_TYPE.JOINT_ROUND:
+                        endJoint = JOINT_TYPE.JOINT_CAP_ROUND;
+                        break;
+                    case JOINT_TYPE.JOINT_BEVEL:
+                        endJoint = JOINT_TYPE.JOINT_CAP_BUTT;
+                        break;
+                    default:
+                        endJoint = JOINT_TYPE.JOINT_CAP_SQUARE;
+                        break;
                 }
             }
 
@@ -169,7 +174,7 @@ export class PolyBuilder implements IShapeBuilder {
             joints.push(endJoint);
         }
 
-        if (closed) {
+        if (closeStroke) {
             verts.push(points[0], points[1]);
             joints.push(JOINT_TYPE.CAP_BUTT);
         }
