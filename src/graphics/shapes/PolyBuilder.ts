@@ -131,29 +131,19 @@ export class PolyBuilder implements IShapeBuilder {
 
             const dx = x2 - x1;
             const dy = y2 - y1;
-
-            let prevX: number, prevY: number;
-            if (i > 0) {
-                prevX = points[i - 2];
-                prevY = points[i - 1];
-            } else {
-                prevX = x1 - dx;
-                prevY = y1 - dy;
-            }
-
             let nextX: number, nextY: number;
 
             let endJoint = joint;
             if (i + 2 >= len) {
                 nextX = points[2];
                 nextY = points[3];
-                if (!closed) {
+                if (!closeStroke) {
                     endJoint = JOINT_TYPE.CAP_BUTT;
                 }
             } else if (i + 4 >= len) {
                 nextX = points[0];
                 nextY = points[1];
-                if (!closed) {
+                if (!closeStroke) {
                     endJoint = cap - JOINT_TYPE.CAP_BUTT + JOINT_TYPE.JOINT_CAP_BUTT;
                 }
             } else {
@@ -183,12 +173,12 @@ export class PolyBuilder implements IShapeBuilder {
 
                 if (joint === JOINT_TYPE.JOINT_MITER) {
                     let jointAdd = 0;
-                    if (dx2 * dx + dy2 * dy > -eps) {
-                        jointAdd++;
-                    }
                     const dx3 = x1 - prevX;
                     const dy3 = y1 - prevY;
-                    if (endJoint === JOINT_TYPE.JOINT_MITER && dx3 * dx + dy3 * dy > -eps) {
+                    if (dx3 * dx + dy3 * dy > -eps) {
+                        jointAdd++;
+                    }
+                    if (endJoint === JOINT_TYPE.JOINT_MITER && dx2 * dx + dy2 * dy > -eps) {
                         jointAdd += 2;
                     }
                     endJoint += jointAdd;
@@ -197,6 +187,9 @@ export class PolyBuilder implements IShapeBuilder {
 
             verts.push(x1, y1);
             joints.push(endJoint);
+
+            prevX = x1;
+            prevY = y1;
         }
 
         if (closeStroke) {

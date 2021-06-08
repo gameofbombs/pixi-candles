@@ -12,7 +12,7 @@ import {
 
 import { Texture, UniformGroup, State, Renderer, BatchDrawCall, Shader } from '@pixi/core';
 import { graphicsUtils, LINE_JOIN, LINE_CAP, FillStyle, LineStyle,
-    ILineStyleOptions, IFillStyleOptions, IGraphicsBatchElement } from '@pixi/graphics';
+    ILineStyleOptions, IFillStyleOptions, Graphics } from '@pixi/graphics';
 import { hex2rgb } from '@pixi/utils';
 import { SmoothGraphicsGeometry } from './SmoothGraphicsGeometry';
 import { BLEND_MODES } from '@pixi/constants';
@@ -523,6 +523,11 @@ export class SmoothGraphics extends Container
         return data.length === 1
             && data[0].shape.type === SHAPES.RECT
             && !(data[0].lineStyle.visible && data[0].lineStyle.width);
+    }
+
+    protected _renderCanvas(renderer: any): void
+    {
+        (Graphics.prototype as any)._renderCanvas.call(this, renderer);
     }
 
     protected _render(renderer: Renderer): void
