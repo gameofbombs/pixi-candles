@@ -84,6 +84,9 @@ export class SegmentPacker {
         let x1: number, y1: number, x2: number, y2: number, prevX: number, prevY: number, nextX: number, nextY: number;
         let type: number;
         let hasTriangle = false;
+
+        let firstType = -1;
+
         for (let j = jointStart; j < jointStart + jointLen; j++) {
             const joint = joints[j];
 
@@ -132,7 +135,7 @@ export class SegmentPacker {
                 nextX = verts[j * 2];
                 nextY = verts[j * 2 + 1];
             }
-            type = 1; // The joint
+            type = joint;
 
             for (let i = 0; i < 4; i++) {
                 bufFloat[bufPos] = prevX;
@@ -143,7 +146,7 @@ export class SegmentPacker {
                 bufFloat[bufPos + 5] = y2;
                 bufFloat[bufPos + 6] = nextX;
                 bufFloat[bufPos + 7] = nextY;
-                bufFloat[bufPos + 8] = 8 * type + i;
+                bufFloat[bufPos + 8] = 16 * type + i;
                 bufFloat[bufPos + 9] = lineStyle;
                 bufUint[bufPos + 10] = color;
                 bufPos += strideFloats;
@@ -185,7 +188,6 @@ verts[JOINT_TYPE.JOINT_CAP_SQUARE] = 4;
 verts[JOINT_TYPE.JOINT_BEVEL] = 4;
 verts[JOINT_TYPE.JOINT_ROUND] = 4;
 verts[JOINT_TYPE.JOINT_MITER] = 4;
-verts[JOINT_TYPE.JOINT_MITER_GOOD] = 4;
 
 // verts[JOINT_TYPE.JOINT_CAP_ROUND] = 4 + 4;
 // verts[JOINT_TYPE.JOINT_CAP_SQUARE] = 4 + 4;

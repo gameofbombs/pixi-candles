@@ -28,26 +28,44 @@ void main(void){
     vec2 pointA = (translationMatrix * vec3(aPoint1, 1.0)).xy;
     vec2 pointB = (translationMatrix * vec3(aPoint2, 1.0)).xy;
 
-    vec2 xBasis = pointB - pointA + 0.00001 * (aNext - aPrev);
-    vec2 yBasis = normalize(vec2(-xBasis.y, xBasis.x));
+    vec2 xBasis = pointB - pointA;
+    vec2 norm = normalize(vec2(-xBasis.y, xBasis.x));
 
-    float type = floor(aVertexJoint / 8.0);
-    float vertexNum = aVertexJoint - type * 8.0;
+    //+ 0.00001 * (aNext - aPrev)
+
+    float type = floor(aVertexJoint / 16.0);
+    float vertexNum = aVertexJoint - type * 16.0;
     float dx = 0.0, dy = 1.0;
 
     vec2 pos;
     if (type == 0.0) {
         pos = pointA;
     } else {
-        if (vertexNum == 1.0) {
-            dx = 1.0;
-        } else if (vertexNum == 2.0) {
-            dx = 1.0;
-            dy = -1.0;
-        } else if (vertexNum == 3.0) {
-            dy = -1.0;
+        vec2 prev = (translationMatrix * vec3(aPrev, 1.0)).xy;
+        vec2 next = (translationMatrix * vec3(aNext, 1.0)).xy;
+
+        float dy = aLineStyle;
+        if (vertexNum >= 1.5) {
+            dy = -aLineStyle;
         }
-        pos = pointA + xBasis * dx + yBasis * dy * aLineStyle;
+        vec2 base, bisect, norm2;
+        if (vertexNum < 0.5 || vertexNum > 2.5) {
+            vec2 prev = (translationMatrix * vec3(aPrev, 1.0)).xy;
+            base = pointA;
+            norm2 = normalize(vec2(aPrev.y - pointA.y, pointA.x - aPrev.x));
+        } else {
+            vec2 next = (translationMatrix * vec3(aNext, 1.0)).xy;
+            base = pointB;
+            norm2 = normalize(vec2(pointB.y - next.y, next.x - pointB.x));
+        }
+        if (dot(norm, norm2) > -0.001) {
+            vec2 bisect = (norm + norm2) / 2.0;
+            bisect /= dot(norm, bisect);
+
+            pos = base + dy * bisect;
+        } else {
+            pos = base + dy * norm;
+        }
     }
 
     gl_Position = vec4((projectionMatrix * vec3(pos, 1.0)).xy, 0.0, 1.0);

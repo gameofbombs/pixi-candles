@@ -164,14 +164,8 @@ export class PolyBuilder implements IShapeBuilder {
             if (joint >= JOINT_TYPE.JOINT_BEVEL && joint <= JOINT_TYPE.JOINT_MITER) {
                 const dx2 = nextX - x2;
                 const dy2 = nextY - y2;
-
-                if (joint === JOINT_TYPE.JOINT_MITER && dx2 * dx + dy2 * dy < eps) {
-                    endJoint = JOINT_TYPE.JOINT_MITER_GOOD; // its a good miter
-                } else {
-                    endJoint = joint;
-                }
-
                 const D = dx2 * dy - dy2 * dx;
+
                 if (Math.abs(D) < eps) {
                     // go in reverse!
                     switch (joint) {
@@ -185,6 +179,19 @@ export class PolyBuilder implements IShapeBuilder {
                             endJoint = JOINT_TYPE.JOINT_CAP_SQUARE;
                             break;
                     }
+                }
+
+                if (joint === JOINT_TYPE.JOINT_MITER) {
+                    let jointAdd = 0;
+                    if (dx2 * dx + dy2 * dy > -eps) {
+                        jointAdd++;
+                    }
+                    const dx3 = x1 - prevX;
+                    const dy3 = y1 - prevY;
+                    if (endJoint === JOINT_TYPE.JOINT_MITER && dx3 * dx + dy3 * dy > -eps) {
+                        jointAdd += 2;
+                    }
+                    endJoint += jointAdd;
                 }
             }
 
