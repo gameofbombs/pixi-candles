@@ -92,7 +92,7 @@ export class SmoothGraphics extends Container
 
         this.vertexData = null;
 
-        this.pluginName = 'batch';
+        this.pluginName = 'smooth';
 
         this._transformID = -1;
 

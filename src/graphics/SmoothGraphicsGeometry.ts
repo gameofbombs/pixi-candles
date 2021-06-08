@@ -25,14 +25,14 @@ import {premultiplyTint} from '@pixi/utils';
 import {Bounds} from '@pixi/display';
 
 import type {Circle, Ellipse, Polygon, Rectangle, RoundedRectangle, IPointData} from '@pixi/math';
-import {BuildData} from "./core/BuildData";
-import {SegmentPacker} from "./core/SegmentPacker";
+import {BuildData} from './core/BuildData';
+import {SegmentPacker} from './core/SegmentPacker';
 
 /*
  * Complex shape type
  * @todo Move to Math shapes
  */
-type IShape = Circle | Ellipse | Polygon | Rectangle | RoundedRectangle;
+export type IShape = Circle | Ellipse | Polygon | Rectangle | RoundedRectangle;
 
 const tmpPoint = new Point();
 const tmpBounds = new Bounds();
@@ -171,7 +171,7 @@ export class SmoothGraphicsGeometry extends Geometry {
     }
 
     public checkInstancing(instanced: boolean, allow32Indices: boolean) {
-        if (!this.packer) {
+        if (this.packer) {
             return;
         }
         this.packer = new SegmentPacker();
@@ -501,9 +501,9 @@ export class SmoothGraphicsGeometry extends Geometry {
         }
         if (index.data.length !== indexSize) {
             if (vertexSize > 0xffff && this.pack32index) {
-                index.data = new Uint16Array();
+                index.data = new Uint16Array(indexSize);
             } else {
-                index.data = new Uint32Array();
+                index.data = new Uint32Array(indexSize);
             }
         }
 
@@ -526,10 +526,12 @@ export class SmoothGraphicsGeometry extends Geometry {
                 const rgb = (color >> 16) + (color & 0xff00) + ((color & 0xff) << 16);
                 const rgba = premultiplyTint(rgb, data.lineStyle.alpha);
 
-                packer.packInterleavedGeometry(data.fillStart, data.fillLen, data.triangles, lineStyle, rgba);
+                packer.packInterleavedGeometry(data.strokeStart, data.strokeLen, data.triangles, lineStyle, rgba);
             }
         }
 
+        buffer.update();
+        index.update();
         this.packSize = vertexSize;
     }
 

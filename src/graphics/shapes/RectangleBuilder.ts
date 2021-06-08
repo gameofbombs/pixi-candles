@@ -2,7 +2,7 @@ import type {Rectangle} from '@pixi/math';
 import type {IShapeBuilder} from '../core/IShapeBuilder';
 import {SmoothGraphicsData} from '../core/SmoothGraphicsData';
 import {BuildData} from '../core/BuildData';
-import {JOINT_TYPE} from "../core/const";
+import {JOINT_TYPE} from '../core/const';
 
 export class RectangleBuilder implements IShapeBuilder {
     path(graphicsData: SmoothGraphicsData, target: BuildData) {

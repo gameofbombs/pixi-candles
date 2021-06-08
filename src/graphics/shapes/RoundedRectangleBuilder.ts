@@ -2,9 +2,9 @@ import type {Rectangle} from '@pixi/math';
 import type {IShapeBuilder} from '../core/IShapeBuilder';
 import {SmoothGraphicsData} from '../core/SmoothGraphicsData';
 import {BuildData} from '../core/BuildData';
-import {RoundedRectangle} from "@pixi/math";
+import {RoundedRectangle} from '@pixi/math';
 import { earcut } from '@pixi/utils';
-import {JOINT_TYPE} from "../core/const";
+import {JOINT_TYPE} from '../core/const';
 
 function getPt(n1: number, n2: number, perc: number): number {
     const diff = n2 - n1;

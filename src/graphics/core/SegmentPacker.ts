@@ -1,6 +1,6 @@
-import {BuildData} from "./BuildData";
-import {SmoothGraphicsData} from "./SmoothGraphicsData";
-import {JOINT_TYPE} from "./const";
+import {BuildData} from './BuildData';
+import {SmoothGraphicsData} from './SmoothGraphicsData';
+import {JOINT_TYPE} from './const';
 
 export class SegmentPacker {
     static vertsByJoint: Array<number> = [];
@@ -18,9 +18,15 @@ export class SegmentPacker {
 
             if (joint === 0) {
                 foundTriangle = true;
+                vertexSize++;
+                continue;
             }
 
-            const vs = SegmentPacker.vertsByJoint[i];
+            if (joint >= JOINT_TYPE.CAP_BUTT) {
+                continue;
+            }
+
+            const vs = SegmentPacker.vertsByJoint[joint];
             vertexSize += vs;
 
             switch (vs) {
@@ -66,9 +72,9 @@ export class SegmentPacker {
         this.indices = null;
     }
 
-    packInterleavedGeometry(jointStart: number, jointEnd: number, triangles: number[],
+    packInterleavedGeometry(jointStart: number, jointLen: number, triangles: number[],
                             lineStyle: number, color: number) {
-        const {bufFloat, bufUint, indices, buildData} = this;
+        const {bufFloat, bufUint, indices, buildData, strideFloats} = this;
         const {joints, verts} = buildData;
 
         let bufPos = this.bufferPos;
@@ -78,12 +84,26 @@ export class SegmentPacker {
         let x1: number, y1: number, x2: number, y2: number, prevX: number, prevY: number, nextX: number, nextY: number;
         let type: number;
         let hasTriangle = false;
-        for (let j = jointStart; j < jointEnd; j++) {
+        for (let j = jointStart; j < jointStart + jointLen; j++) {
             const joint = joints[j];
 
             if (joint === JOINT_TYPE.FILL) {
                 // just one vertex
                 hasTriangle = true;
+                x1 = verts[j * 2];
+                y1 = verts[j * 2 + 1];
+                bufFloat[bufPos] = x1;
+                bufFloat[bufPos + 1] = y1;
+                bufFloat[bufPos + 2] = x1;
+                bufFloat[bufPos + 3] = y1;
+                bufFloat[bufPos + 4] = x1;
+                bufFloat[bufPos + 5] = y1;
+                bufFloat[bufPos + 6] = x1;
+                bufFloat[bufPos + 7] = y1;
+                bufFloat[bufPos + 8] = 0;
+                bufFloat[bufPos + 9] = 0;
+                bufUint[bufPos + 10] = color;
+                bufPos += strideFloats;
                 continue;
             }
 
@@ -120,7 +140,7 @@ export class SegmentPacker {
                 bufFloat[bufPos + 8] = 8 * type + i;
                 bufFloat[bufPos + 9] = lineStyle;
                 bufUint[bufPos + 10] = color;
-                bufPos += 9;
+                bufPos += strideFloats;
             }
 
             indices[indPos] = index;
@@ -154,19 +174,19 @@ verts[JOINT_TYPE.FILL] = 1;
 verts[JOINT_TYPE.JOINT_CAP_BUTT] = 4;
 
 // no caps for now
-// verts[JOINT_TYPE.JOINT_CAP_ROUND] = 4;
-// verts[JOINT_TYPE.JOINT_CAP_SQUARE] = 4;
-// verts[JOINT_TYPE.JOINT_BEVEL] = 4;
-// verts[JOINT_TYPE.JOINT_ROUND] = 4;
-// verts[JOINT_TYPE.JOINT_MITER] = 4;
-// verts[JOINT_TYPE.JOINT_MITER_GOOD] = 4;
+verts[JOINT_TYPE.JOINT_CAP_ROUND] = 4;
+verts[JOINT_TYPE.JOINT_CAP_SQUARE] = 4;
+verts[JOINT_TYPE.JOINT_BEVEL] = 4;
+verts[JOINT_TYPE.JOINT_ROUND] = 4;
+verts[JOINT_TYPE.JOINT_MITER] = 4;
+verts[JOINT_TYPE.JOINT_MITER_GOOD] = 4;
 
-verts[JOINT_TYPE.JOINT_CAP_ROUND] = 4 + 4;
-verts[JOINT_TYPE.JOINT_CAP_SQUARE] = 4 + 4;
-verts[JOINT_TYPE.JOINT_BEVEL] = 4 + 5;
-verts[JOINT_TYPE.JOINT_ROUND] = 4 + 5;
-verts[JOINT_TYPE.JOINT_MITER] = 4 + 5;
-verts[JOINT_TYPE.JOINT_MITER_GOOD] = 4 + 4;
+// verts[JOINT_TYPE.JOINT_CAP_ROUND] = 4 + 4;
+// verts[JOINT_TYPE.JOINT_CAP_SQUARE] = 4 + 4;
+// verts[JOINT_TYPE.JOINT_BEVEL] = 4 + 5;
+// verts[JOINT_TYPE.JOINT_ROUND] = 4 + 5;
+// verts[JOINT_TYPE.JOINT_MITER] = 4 + 5;
+// verts[JOINT_TYPE.JOINT_MITER_GOOD] = 4 + 4;
 
 verts[JOINT_TYPE.CAP_ROUND] = 4;
 verts[JOINT_TYPE.CAP_SQUARE] = 4;

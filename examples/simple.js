@@ -12,3 +12,14 @@ for (let i=0;i<30;i++) {
     bars.addRect(x, y, 10, 20, color);
     bars.addRect(x+4, y-10, 2, 40, color);
 }
+
+app.render();
+
+bars.clear();
+for (let i=0;i<30;i++) {
+    const x = i * 20.3;
+    const y = 600 - i * 20.3;
+    const color = i%2==0 ? 0xff0000 : 0x00ff00;
+    bars.addRect(x, y, 10, 20, color);
+    bars.addRect(x+4, y-10, 2, 40, color);
+}

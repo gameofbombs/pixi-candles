@@ -1,5 +1,5 @@
 import type { Matrix, SHAPES, IShape } from '@pixi/math';
-import {FillStyle, LINE_CAP, LINE_JOIN, LineStyle} from "@pixi/graphics";
+import {FillStyle, LINE_CAP, LINE_JOIN, LineStyle} from '@pixi/graphics';
 import {JOINT_TYPE} from './const';
 
 /**
@@ -33,7 +33,7 @@ export class SmoothGraphicsData
 
         this.lineStyle = lineStyle;
 
-        this.fillStyle = fillStyle;
+         this.fillStyle = fillStyle;
 
         this.matrix = matrix;
 
@@ -77,13 +77,13 @@ export class SmoothGraphicsData
         let cap: number;
         switch (this.lineStyle.cap) {
             case LINE_CAP.SQUARE:
-                cap = 32 + 1;
+                cap = JOINT_TYPE.CAP_SQUARE;
                 break;
             case LINE_CAP.ROUND:
-                cap = 32 + 2;
+                cap = JOINT_TYPE.CAP_ROUND;
                 break;
             default:
-                cap = 32;
+                cap = JOINT_TYPE.CAP_BUTT;
                 break;
         }
         return cap;
