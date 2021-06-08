@@ -37,6 +37,9 @@ export class CircleBuilder implements IShapeBuilder {
             || Math.floor(15 * Math.sqrt(width + height));
 
         totalSegs /= 2.3;
+        if (totalSegs < 3) {
+            totalSegs = 3;
+        }
 
         const seg = (Math.PI * 2) / totalSegs;
 
@@ -52,21 +55,18 @@ export class CircleBuilder implements IShapeBuilder {
         const {verts, joints} = target;
         const {points, triangles} = graphicsData;
 
-        let vertPos = 0;
+        let vertPos = 1;
         const center = 0;
-        const circle = (graphicsData.shape) as Circle;
-        const x = circle.x;
-        const y = circle.y;
 
         // Push center (special point)
         for (let i = 0; i < points.length; i += 2) {
             verts.push(points[i], points[i + 1]);
             joints.push(0);
-            // add some uvs
-            if (i > 0) {
+            if (i > 2) {
                 triangles.push(vertPos++, center, vertPos);
             }
         }
+        triangles.push(vertPos, center, 1);
     }
 
     line(graphicsData: SmoothGraphicsData, target: BuildData): void {
@@ -83,6 +83,8 @@ export class CircleBuilder implements IShapeBuilder {
             joints.push(joint);
         }
         verts.push(points[2], points[3]);
+        joints.push(JOINT_TYPE.CAP_BUTT);
+        verts.push(points[4], points[5]);
         joints.push(JOINT_TYPE.CAP_BUTT);
     }
 }

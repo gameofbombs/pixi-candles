@@ -354,7 +354,7 @@ export class SmoothGraphicsGeometry extends Geometry {
             data.fillStart = 0;
             data.fillLen = 0;
             const {fillStyle, lineStyle, holes} = data;
-            if (!fillStyle.visible || !lineStyle.visible) {
+            if (!fillStyle.visible && !lineStyle.visible) {
                 continue;
             }
 
@@ -366,7 +366,6 @@ export class SmoothGraphicsGeometry extends Geometry {
             }
 
             data.clearBuild();
-            command.path(data, buildData);
             if (fillStyle.visible) {
                 if (holes.length) {
                     this.processHoles(holes);
@@ -429,6 +428,7 @@ export class SmoothGraphicsGeometry extends Geometry {
 
                 const nextTexture = style.texture.baseTexture;
                 const attribOld = buildData.vertexSize;
+                const indexOld = buildData.indexSize;
 
                 nextTexture.wrapMode = WRAP_MODES.REPEAT;
 
@@ -439,18 +439,17 @@ export class SmoothGraphicsGeometry extends Geometry {
                 }
 
                 const attribSize = buildData.vertexSize;
-                const indexSize = buildData.indexSize;
 
                 if (attribSize === attribOld) continue;
                 // close batch if style is different
                 if (batchPart && !this._compareStyles(currentStyle, style)) {
-                    batchPart.end(indexSize, attribSize);
+                    batchPart.end(indexOld, attribOld);
                     batchPart = null;
                 }
                 // spawn new batch if its first batch or previous was closed
                 if (!batchPart) {
                     batchPart = BATCH_POOL.pop() || new BatchPart();
-                    batchPart.begin(style, indexSize, attribSize);
+                    batchPart.begin(style, indexOld, attribOld);
                     this.batches.push(batchPart);
                     currentStyle = style;
                 }
@@ -497,7 +496,7 @@ export class SmoothGraphicsGeometry extends Geometry {
             const arrBuf = new ArrayBuffer(floatsSize * 4);
             this._bufferFloats = new Float32Array(arrBuf);
             this._bufferUint = new Uint32Array(arrBuf);
-            buffer.data = new Float32Array(floatsSize);
+            buffer.data = this._bufferFloats;
         }
         if (index.data.length !== indexSize) {
             if (vertexSize > 0xffff && this.pack32index) {
@@ -516,7 +515,7 @@ export class SmoothGraphicsGeometry extends Geometry {
                 const lineStyle = 0;
                 const color = data.fillStyle.color;
                 const rgb = (color >> 16) + (color & 0xff00) + ((color & 0xff) << 16);
-                const rgba = premultiplyTint(rgb, data.lineStyle.alpha);
+                const rgba = premultiplyTint(rgb, data.fillStyle.alpha);
 
                 packer.packInterleavedGeometry(data.fillStart, data.fillLen, data.triangles, lineStyle, rgba);
             }

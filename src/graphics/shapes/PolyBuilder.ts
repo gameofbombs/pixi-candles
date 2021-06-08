@@ -22,7 +22,7 @@ export class PolyBuilder implements IShapeBuilder {
         const closedShape = graphicsData.closeStroke = shape.closeStroke;
 
         let len = points.length;
-        let newLen = 0;
+        let newLen = 2;
 
         // 1. remove equal points
         for (let i = 2; i < len; i += 2) {
@@ -41,7 +41,7 @@ export class PolyBuilder implements IShapeBuilder {
         }
         points.length = len = newLen;
 
-        newLen = 0;
+        newLen = 2;
         // 2. remove middle points
         for (let i = 2; i + 2 < len; i += 2) {
             let x1 = points[i - 2], y1 = points[i - 1], x2 = points[i], y2 = points[i + 1],
@@ -64,6 +64,10 @@ export class PolyBuilder implements IShapeBuilder {
                 newLen += 2;
             }
         }
+        points[newLen] = points[len - 2];
+        points[newLen + 1] = points[len - 1];
+        newLen += 2;
+
         points.length = len = newLen;
 
         if (len <= 2) {
@@ -76,9 +80,9 @@ export class PolyBuilder implements IShapeBuilder {
             const closedPath = Math.abs(firstPoint.x - lastPoint.x) < eps
                 && Math.abs(firstPoint.y - lastPoint.y) < eps;
 
-            if (!closedPath) {
-                points.push(points[0]);
-                points.push(points[1]);
+            if (closedPath) {
+                points.pop();
+                points.pop();
             }
         }
     }
@@ -113,8 +117,18 @@ export class PolyBuilder implements IShapeBuilder {
         verts.push(prevX, prevY);
 
         /* Line segments of interest where (x1,y1) forms the corner. */
-        for (let i = 0; i + 2 < len; i += 2) {
-            const x1 = points[i], y1 = points[i + 1], x2 = points[i + 2], y2 = points[i + 3];
+        for (let i = 0; i < len; i += 2) {
+            const x1 = points[i], y1 = points[i + 1];
+
+            let x2: number, y2: number;
+            if (i + 2 < len) {
+                x2 = points[i + 2];
+                y2 = points[i + 3];
+            } else {
+                x2 = points[0];
+                y2 = points[1];
+            }
+
             const dx = x2 - x1;
             const dy = y2 - y1;
 
@@ -129,44 +143,48 @@ export class PolyBuilder implements IShapeBuilder {
 
             let nextX: number, nextY: number;
 
-            if (i + 4 >= len && !closed) {
-                verts.push(x1, y1);
-                joints.push(cap - JOINT_TYPE.CAP_BUTT + JOINT_TYPE.JOINT_CAP_BUTT);
-                continue;
-
-            }
-
-            if (i + 4 < len) {
-                nextX = points[i + 4];
-                nextY = points[i + 5];
-            } else {
+            let endJoint = joint;
+            if (i + 2 >= len) {
+                nextX = points[2];
+                nextY = points[3];
+                if (!closed) {
+                    endJoint = JOINT_TYPE.CAP_BUTT;
+                }
+            } else if (i + 4 >= len) {
                 nextX = points[0];
                 nextY = points[1];
-            }
-
-            const dx2 = nextX - x2;
-            const dy2 = nextY - y2;
-
-            let endJoint: number;
-            if (joint === JOINT_TYPE.JOINT_MITER && dx2 * dx + dy2 * dy < eps) {
-                endJoint = JOINT_TYPE.JOINT_MITER_GOOD; // its a good miter
+                if (!closed) {
+                    endJoint = cap - JOINT_TYPE.CAP_BUTT + JOINT_TYPE.JOINT_CAP_BUTT;
+                }
             } else {
-                endJoint = joint;
+                nextX = points[i + 4];
+                nextY = points[i + 5];
             }
 
-            const D = dx2 * dy - dy2 * dx;
-            if (Math.abs(D) < eps) {
-                // go in reverse!
-                switch (joint) {
-                    case JOINT_TYPE.JOINT_ROUND:
-                        endJoint = JOINT_TYPE.JOINT_CAP_ROUND;
-                        break;
-                    case JOINT_TYPE.JOINT_BEVEL:
-                        endJoint = JOINT_TYPE.JOINT_CAP_BUTT;
-                        break;
-                    default:
-                        endJoint = JOINT_TYPE.JOINT_CAP_SQUARE;
-                        break;
+            if (joint >= JOINT_TYPE.JOINT_BEVEL && joint <= JOINT_TYPE.JOINT_MITER) {
+                const dx2 = nextX - x2;
+                const dy2 = nextY - y2;
+
+                if (joint === JOINT_TYPE.JOINT_MITER && dx2 * dx + dy2 * dy < eps) {
+                    endJoint = JOINT_TYPE.JOINT_MITER_GOOD; // its a good miter
+                } else {
+                    endJoint = joint;
+                }
+
+                const D = dx2 * dy - dy2 * dx;
+                if (Math.abs(D) < eps) {
+                    // go in reverse!
+                    switch (joint) {
+                        case JOINT_TYPE.JOINT_ROUND:
+                            endJoint = JOINT_TYPE.JOINT_CAP_ROUND;
+                            break;
+                        case JOINT_TYPE.JOINT_BEVEL:
+                            endJoint = JOINT_TYPE.JOINT_CAP_BUTT;
+                            break;
+                        default:
+                            endJoint = JOINT_TYPE.JOINT_CAP_SQUARE;
+                            break;
+                    }
                 }
             }
 
@@ -176,6 +194,8 @@ export class PolyBuilder implements IShapeBuilder {
 
         if (closeStroke) {
             verts.push(points[0], points[1]);
+            joints.push(JOINT_TYPE.CAP_BUTT);
+            verts.push(points[2], points[3]);
             joints.push(JOINT_TYPE.CAP_BUTT);
         }
     }
