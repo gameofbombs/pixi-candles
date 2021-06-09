@@ -109,7 +109,8 @@ void main(void){
             base = pointB;
             norm2 = normalize(vec2(next.y - pointB.y, -(next.x - pointB.x)));
         }
-        if (abs(dot(norm, norm2)) > -0.001) {
+        if (abs(norm.x * norm2.y - norm.y * norm2.x) > 0.01
+            && dot(norm, norm2) > -0.01) {
             vec2 bisect = (norm + norm2) / 2.0;
             bisect /= dot(norm, bisect);
 

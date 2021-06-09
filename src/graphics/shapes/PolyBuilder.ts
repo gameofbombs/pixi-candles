@@ -155,20 +155,21 @@ export class PolyBuilder implements IShapeBuilder {
             if (joint >= JOINT_TYPE.JOINT_BEVEL && joint <= JOINT_TYPE.JOINT_MITER) {
                 const dx2 = nextX - x2;
                 const dy2 = nextY - y2;
-                const D = dx2 * dy - dy2 * dx;
-
-                if (Math.abs(D) < eps) {
-                    // go in reverse!
-                    switch (joint) {
-                        case JOINT_TYPE.JOINT_ROUND:
-                            endJoint = JOINT_TYPE.JOINT_CAP_ROUND;
-                            break;
-                        case JOINT_TYPE.JOINT_BEVEL:
-                            endJoint = JOINT_TYPE.JOINT_CAP_BUTT;
-                            break;
-                        default:
-                            endJoint = JOINT_TYPE.JOINT_CAP_SQUARE;
-                            break;
+                if (endJoint >= JOINT_TYPE.JOINT_BEVEL
+                    && endJoint <= JOINT_TYPE.JOINT_MITER + 3) {
+                    const D = dx2 * dy - dy2 * dx;
+                    if (Math.abs(D) < eps) {
+                        switch (joint & ~3) {
+                            case JOINT_TYPE.JOINT_ROUND:
+                                endJoint = JOINT_TYPE.JOINT_CAP_ROUND;
+                                break;
+                            case JOINT_TYPE.JOINT_BEVEL:
+                                endJoint = JOINT_TYPE.JOINT_CAP_BUTT;
+                                break;
+                            default:
+                                endJoint = JOINT_TYPE.JOINT_CAP_SQUARE;
+                                break;
+                        }
                     }
                 }
 
@@ -197,6 +198,9 @@ export class PolyBuilder implements IShapeBuilder {
             verts.push(points[0], points[1]);
             joints.push(JOINT_TYPE.CAP_BUTT);
             verts.push(points[2], points[3]);
+            joints.push(JOINT_TYPE.CAP_BUTT);
+        } else {
+            verts.push(points[len - 4], points[len - 3]);
             joints.push(JOINT_TYPE.CAP_BUTT);
         }
     }
