@@ -35,9 +35,11 @@ export class RectangleBuilder implements IShapeBuilder {
         joints.push(JOINT_TYPE.CAP_BUTT);
         for (let i = 0; i < len; i += 2) {
             verts.push(points[i], points[i + 1]);
-            joints.push(joint);
+            joints.push(joint + 3);
         }
         verts.push(points[0], points[1]);
+        joints.push(JOINT_TYPE.CAP_BUTT);
+        verts.push(points[2], points[3]);
         joints.push(JOINT_TYPE.CAP_BUTT);
     }
 

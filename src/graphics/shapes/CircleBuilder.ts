@@ -101,7 +101,6 @@ export class CircleBuilder implements IShapeBuilder {
     line(graphicsData: SmoothGraphicsData, target: BuildData): void {
         const {verts, joints} = target;
         const {points} = graphicsData;
-
         const joint = graphicsData.jointType();
         const len = points.length;
 

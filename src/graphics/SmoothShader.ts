@@ -35,8 +35,6 @@ void main(void){
     vec2 xBasis = pointB - pointA;
     vec2 norm = normalize(vec2(xBasis.y, -xBasis.x));
 
-    //+ 0.00001 * (aNext - aPrev)
-
     float type = floor(aVertexJoint / 16.0);
     float vertexNum = aVertexJoint - type * 16.0;
     float dx = 0.0, dy = 1.0;
@@ -105,7 +103,7 @@ void main(void){
         if (vertexNum < 0.5 || vertexNum > 2.5) {
             vec2 prev = (translationMatrix * vec3(aPrev, 1.0)).xy;
             base = pointA;
-            norm2 = normalize(vec2(pointA.y - aPrev.y, -(pointA.x - aPrev.x)));
+            norm2 = normalize(vec2(pointA.y - prev.y, -(pointA.x - prev.x)));
         } else {
             vec2 next = (translationMatrix * vec3(aNext, 1.0)).xy;
             base = pointB;
