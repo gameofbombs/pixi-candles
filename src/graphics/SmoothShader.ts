@@ -13,7 +13,7 @@ attribute vec2 aPrev;
 attribute vec2 aPoint1;
 attribute vec2 aPoint2;
 attribute vec2 aNext;
-attribute float aLineStyle;
+attribute vec2 aLineStyle;
 attribute float aVertexJoint;
 attribute vec4 aColor;
 
@@ -39,7 +39,7 @@ void main(void){
     float vertexNum = aVertexJoint - type * 16.0;
     float dx = 0.0, dy = 1.0;
 
-    float lineWidth = aLineStyle * 0.5;
+    float lineWidth = aLineStyle.x * 0.5;
     vec2 pos;
     if (type == 0.0) {
         pos = pointA;

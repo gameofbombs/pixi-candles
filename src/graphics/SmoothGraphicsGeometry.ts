@@ -122,12 +122,12 @@ export class SmoothGraphicsGeometry extends Geometry {
             // number of vertex
             .addAttribute('aVertexJoint', this._buffer, 1, false, TYPES.FLOAT)
             // line width, alignment
-            .addAttribute('aLineStyle', this._buffer, 1, false, TYPES.FLOAT)
+            .addAttribute('aLineStyle', this._buffer, 2, false, TYPES.FLOAT)
             // the usual
             .addAttribute('aColor', this._buffer, 4, true, TYPES.UNSIGNED_BYTE)
             .addIndex(this._indexBuffer);
 
-        this.strideFloats = 11;
+        this.strideFloats = 12;
     }
 
     constructor() {

@@ -648,6 +648,15 @@ export class SmoothGraphics extends Container
 
         uniforms.resolution = renderer.renderTexture.current ?
             renderer.renderTexture.current.resolution : renderer.resolution;
+
+        const projTrans = renderer.projection.transform;
+
+        if (projTrans) {
+            // only uniform scale is supported!
+            const scale = Math.sqrt(projTrans.a * projTrans.a + projTrans.b * projTrans.b);
+            uniforms.resolution *= scale;
+        }
+
         uniforms.expand = (renderer.options.antialias ? 2 : 1) / uniforms.resolution;
 
         // the first draw call, we can set the uniforms of the shader directly here.

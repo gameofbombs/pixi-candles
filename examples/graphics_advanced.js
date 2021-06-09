@@ -11,6 +11,12 @@ function makeFigures(graphics) {
     graphics.moveTo(100, 150);
     graphics.lineTo(600, 150);
 
+    graphics.moveTo(100, 160);
+    graphics.lineTo(600, 160);
+
+    graphics.moveTo(100, 170);
+    graphics.lineTo(600, 170);
+
     graphics.rotation = 0.06
 }
 

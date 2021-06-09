@@ -5,7 +5,7 @@ import {JOINT_TYPE} from './const';
 export class SegmentPacker {
     static vertsByJoint: Array<number> = [];
 
-    strideFloats = 11;
+    strideFloats = 12;
 
     updateBufferSize(jointStart: number, jointLen: number, triangles: number, target: BuildData) {
         const {joints} = target;
@@ -114,7 +114,8 @@ export class SegmentPacker {
                 bufFloat[bufPos + 7] = y1;
                 bufFloat[bufPos + 8] = 0;
                 bufFloat[bufPos + 9] = 0;
-                bufUint[bufPos + 10] = color;
+                bufFloat[bufPos + 10] = 0;
+                bufUint[bufPos + 11] = color;
                 bufPos += strideFloats;
                 continue;
             }
@@ -139,7 +140,8 @@ export class SegmentPacker {
                     bufFloat[bufPos + 7] = verts[(bis + i) * 2 + 1];
                     bufFloat[bufPos + 8] = 16 * joint + i;
                     bufFloat[bufPos + 9] = 0;
-                    bufUint[bufPos + 10] = color;
+                    bufFloat[bufPos + 10] = 0;
+                    bufUint[bufPos + 11] = color;
                     bufPos += strideFloats;
                 }
 
@@ -189,7 +191,8 @@ export class SegmentPacker {
                 bufFloat[bufPos + 7] = nextY;
                 bufFloat[bufPos + 8] = 16 * type + i;
                 bufFloat[bufPos + 9] = lineStyle;
-                bufUint[bufPos + 10] = color;
+                bufFloat[bufPos + 10] = 0;
+                bufUint[bufPos + 11] = color;
                 bufPos += strideFloats;
             }
 
