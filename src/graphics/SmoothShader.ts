@@ -63,7 +63,11 @@ void main(void){
         } else {
             pos = pointB;
         }
+        float len = length(aNext);
         vec2 bisect = (translationMatrix * vec3(aNext, 0.0)).xy;
+        if (len > 0.01) {
+            bisect = normalize(bisect) * len;
+        }
 
         vec2 n1 = normalize(vec2(pointA.y - prev.y, -(pointA.x - prev.x)));
         vec2 n2 = normalize(vec2(pointB.y - pointA.y, -(pointB.x - pointA.x)));
