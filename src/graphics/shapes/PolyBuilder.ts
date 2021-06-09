@@ -5,6 +5,7 @@ import {JOINT_TYPE} from '../core/const';
 import {Point, Polygon} from "@pixi/math";
 import {earcut} from '@pixi/utils';
 
+let tempArr: Array<number> = [];
 
 export class PolyBuilder implements IShapeBuilder {
     path(graphicsData: SmoothGraphicsData, buildData: BuildData) {
@@ -204,30 +205,129 @@ export class PolyBuilder implements IShapeBuilder {
         let points = graphicsData.points;
         //TODO: simplify holes too!
         const holes = graphicsData.holes;
+        const eps = buildData.closePointEps;
 
         const {verts, joints} = buildData;
 
-        if (points.length >= 6) {
-            const holeArray = [];
-            // Process holes..
+        if (points.length < 6) {
+            return
+        }
+        const holeArray = [];
+        let len = points.length;
+        // Process holes..
 
-            for (let i = 0; i < holes.length; i++) {
-                const hole = holes[i];
+        for (let i = 0; i < holes.length; i++) {
+            const hole = holes[i];
 
-                holeArray.push(points.length / 2);
-                points = points.concat(hole.points);
+            holeArray.push(points.length / 2);
+            points = points.concat(hole.points);
+        }
+
+        //TODO: reduce size later?
+        const pn = tempArr;
+        if (pn.length < points.length) {
+            pn.length = points.length;
+        }
+        let start = 0;
+        for (let i = 0; i <= holeArray.length; i++) {
+            let finish = len / 2;
+            if (i > 0) {
+                if (i < holeArray.length) {
+                    finish = holeArray[i];
+                } else {
+                    finish = (points.length >> 1);
+                }
             }
-
-            // sort color
-            graphicsData.triangles = earcut(points, holeArray, 2);
-
-            if (!graphicsData.triangles) {
-                return;
+            pn[start * 2] = finish - 1;
+            pn[(finish - 1) * 2 + 1] = 0;
+            for (let j = start; j + 1 < finish; j++) {
+                pn[j * 2 + 1] = j + 1;
+                pn[j * 2 + 2] = j;
             }
+        }
 
+        // sort color
+        graphicsData.triangles = earcut(points, holeArray, 2);
+
+        if (!graphicsData.triangles) {
+            return;
+        }
+
+        if (!graphicsData.fillAA) {
             for (let i = 0; i < points.length; i += 2) {
                 verts.push(points[i], points[i + 1]);
                 joints.push(0);
+            }
+            return;
+        }
+
+        const {triangles} = graphicsData;
+        len = points.length;
+
+        for (let i = 0; i < triangles.length; i += 3) {
+            //TODO: holes prev/next!!!
+            let flag = 0;
+            for (let j = 0; j < 3; j++) {
+                const ind1 = triangles[i + j];
+                const ind2 = triangles[i + (j + 1) % 3];
+                if (pn[ind1 * 2] === ind2 || pn[ind1 * 2 + 1] === ind2) {
+                    flag |= (1 << j);
+                }
+            }
+            joints.push(JOINT_TYPE.FILL_AA + flag);
+            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
+            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
+            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
+            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
+            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
+        }
+
+        // bisect, re-using pn
+        for (let ind = 0; ind < len / 2; ind++) {
+            let prev = pn[ind * 2];
+            let next = pn[ind * 2 + 1];
+            let nx1 = (points[next * 2 + 1] - points[ind * 2 + 1]), ny1 = -(points[next * 2] - points[ind * 2]);
+            let nx2 = (points[ind * 2 + 1] - points[prev * 2 + 1]), ny2 = -(points[ind * 2] - points[prev * 2]);
+            let D1 = Math.sqrt(nx1 * nx1 + ny1 * ny1);
+            nx1 /= D1;
+            ny1 /= D1;
+            let D2 = Math.sqrt(nx2 * nx2 + ny2 * ny2);
+            nx2 /= D2;
+            ny2 /= D2;
+
+            let bx = (nx1 + nx2);
+            let by = (ny1 + ny2);
+            let D = bx * nx1 + by * ny1;
+            if (Math.abs(D) < eps) {
+                bx = nx1;
+                by = ny1;
+            } else {
+                bx /= D;
+                by /= D;
+            }
+            pn[ind * 2] = bx;
+            pn[ind * 2 + 1] = by;
+        }
+
+        for (let i = 0; i < triangles.length; i += 3) {
+            const prev = triangles[i];
+            const ind = triangles[i+1];
+            const next = triangles[i+2];
+            let nx1 = (points[next * 2 + 1] - points[ind * 2 + 1]), ny1 = -(points[next * 2] - points[ind * 2]);
+            let nx2 = (points[ind * 2 + 1] - points[prev * 2 + 1]), ny2 = -(points[ind * 2] - points[prev * 2]);
+
+            let j1 = 1;
+            if (nx1 * ny2 - nx2 * ny1 > 0.0) {
+                j1 = 2;
+            }
+
+            for (let j = 0; j < 3; j++) {
+                let ind = triangles[i + (j * j1) % 3];
+                verts.push(points[ind * 2], points[ind * 2 + 1]);
+            }
+            for (let j = 0; j < 3; j++) {
+                let ind = triangles[i + (j * j1) % 3];
+                verts.push(pn[ind * 2], pn[ind * 2 + 1]);
             }
         }
     }

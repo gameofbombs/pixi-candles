@@ -58,15 +58,44 @@ export class CircleBuilder implements IShapeBuilder {
         let vertPos = 1;
         const center = 0;
 
-        // Push center (special point)
-        for (let i = 0; i < points.length; i += 2) {
-            verts.push(points[i], points[i + 1]);
-            joints.push(0);
-            if (i > 2) {
-                triangles.push(vertPos++, center, vertPos);
+        if (!graphicsData.fillAA) {
+            for (let i = 0; i < points.length; i += 2) {
+                verts.push(points[i], points[i + 1]);
+                joints.push(0);
+                if (i > 2) {
+                    triangles.push(vertPos++, center, vertPos);
+                }
             }
+            triangles.push(vertPos, center, 1);
+            return;
         }
-        triangles.push(vertPos, center, 1);
+
+        let cx = points[0], cy = points[1];
+        let rad = (graphicsData.shape as Circle).radius;
+
+        for (let i = 2; i < points.length; i += 2) {
+            let prev = i, cur = i, next = i + 2 < points.length ? i + 2 : 2;
+            verts.push(cx);
+            verts.push(cy);
+            verts.push(points[cur]);
+            verts.push(points[cur + 1]);
+            verts.push(points[next]);
+            verts.push(points[next + 1]);
+
+            verts.push(0);
+            verts.push(0);
+            verts.push((points[cur] - cx) / rad);
+            verts.push((points[cur + 1] - cy) / rad);
+            verts.push((points[next] - cx) / rad);
+            verts.push((points[next + 1] - cy) / rad);
+
+            joints.push(JOINT_TYPE.FILL_AA + 2);
+            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
+            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
+            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
+            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
+            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
+        }
     }
 
     line(graphicsData: SmoothGraphicsData, target: BuildData): void {

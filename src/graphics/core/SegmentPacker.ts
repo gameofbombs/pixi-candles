@@ -22,6 +22,12 @@ export class SegmentPacker {
                 continue;
             }
 
+            if (joint >= JOINT_TYPE.FILL_AA) {
+                vertexSize += 3;
+                indexSize += 3;
+                continue;
+            }
+
             if (joint >= JOINT_TYPE.CAP_BUTT) {
                 continue;
             }
@@ -30,6 +36,9 @@ export class SegmentPacker {
             vertexSize += vs;
 
             switch (vs) {
+                case 3:
+                    indexSize += 3;
+                    break;
                 case 4:
                     indexSize += 6;
                     break;
@@ -110,6 +119,38 @@ export class SegmentPacker {
                 continue;
             }
 
+            if (joint >= JOINT_TYPE.FILL_AA) {
+                prevX = verts[j * 2];
+                prevY = verts[j * 2 + 1];
+                x1 = verts[j * 2 + 2];
+                y1 = verts[j * 2 + 3];
+                x2 = verts[j * 2 + 4];
+                y2 = verts[j * 2 + 5];
+
+                const bis = j + 3;
+                for (let i = 0; i < 3; i++) {
+                    bufFloat[bufPos] = prevX;
+                    bufFloat[bufPos + 1] = prevY;
+                    bufFloat[bufPos + 2] = x1;
+                    bufFloat[bufPos + 3] = y1;
+                    bufFloat[bufPos + 4] = x2;
+                    bufFloat[bufPos + 5] = y2;
+                    bufFloat[bufPos + 6] = verts[(bis + i) * 2];
+                    bufFloat[bufPos + 7] = verts[(bis + i) * 2 + 1];
+                    bufFloat[bufPos + 8] = 16 * joint + i;
+                    bufFloat[bufPos + 9] = 0;
+                    bufUint[bufPos + 10] = color;
+                    bufPos += strideFloats;
+                }
+
+                indices[indPos] = index;
+                indices[indPos + 1] = index + 1;
+                indices[indPos + 2] = index + 2;
+                indPos += 3;
+                index += 3;
+                continue;
+            }
+
             if (joint >= JOINT_TYPE.CAP_BUTT) {
                 continue;
             }
@@ -176,10 +217,14 @@ export class SegmentPacker {
 }
 
 const verts = SegmentPacker.vertsByJoint;
-for (let i = 0; i < 32; i++)
+for (let i = 0; i < 48; i++)
     verts.push(0);
 // simple fill
 verts[JOINT_TYPE.FILL] = 1;
+
+for (let i = 0; i < 8; i++) {
+    verts[JOINT_TYPE.FILL_AA + i] = 3;
+}
 verts[JOINT_TYPE.JOINT_CAP_BUTT] = 4;
 
 // no caps for now

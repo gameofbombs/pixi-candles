@@ -646,6 +646,10 @@ export class SmoothGraphics extends Container
         uniforms.tint[2] = ((tint & 0xFF) / 255) * worldAlpha;
         uniforms.tint[3] = worldAlpha;
 
+        uniforms.resolution = renderer.renderTexture.current ?
+            renderer.renderTexture.current.resolution : renderer.resolution;
+        uniforms.expand = (renderer.options.antialias ? 2 : 1) / uniforms.resolution;
+
         // the first draw call, we can set the uniforms of the shader directly here.
 
         // this means that we can tack advantage of the sync function of pixi!
@@ -701,6 +705,8 @@ export class SmoothGraphics extends Container
                 const uniforms = {
                     tint: new Float32Array([1, 1, 1, 1]),
                     translationMatrix: new Matrix(),
+                    resolution: 1,
+                    expand: 1,
                     //default: UniformGroup.from({ uSamplers: sampleValues }, true),
                 };
 

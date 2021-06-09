@@ -360,6 +360,7 @@ export class SmoothGraphicsGeometry extends Geometry {
 
             const command = FILL_COMMANDS[data.type];
             data.clearPath();
+
             command.path(data, buildData);
             if (data.matrix) {
                 this.transformPoints(data.points, data.matrix);
@@ -370,6 +371,10 @@ export class SmoothGraphicsGeometry extends Geometry {
                 if (holes.length) {
                     this.processHoles(holes);
                 }
+                data.fillAA = !(data.lineStyle.visible
+                    && data.lineStyle.alpha >= 0.99
+                    && data.lineStyle.width >= 0.99);
+
                 data.fillStart = buildData.joints.length;
                 command.fill(data, buildData);
                 data.fillLen = buildData.joints.length - data.fillStart;

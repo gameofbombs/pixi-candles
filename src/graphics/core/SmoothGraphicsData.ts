@@ -26,6 +26,7 @@ export class SmoothGraphicsData
     fillLen: number;
     strokeStart: number;
     strokeLen: number;
+    fillAA: boolean;
 
     constructor(shape: IShape, fillStyle: FillStyle = null, lineStyle: LineStyle = null, matrix: Matrix = null)
     {
@@ -61,6 +62,7 @@ export class SmoothGraphicsData
         this.fillLen = 0;
         this.strokeStart = 0;
         this.strokeLen = 0;
+        this.fillAA = false;
     }
 
     public clone(): SmoothGraphicsData

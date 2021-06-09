@@ -23,14 +23,17 @@ uniform vec4 tint;
 
 varying vec4 vSignedCoord;
 varying vec4 vColor;
-varying vec2 vDistance;
+varying vec4 vDistance;
+
+uniform float resolution;
+uniform float expand;
 
 void main(void){
     vec2 pointA = (translationMatrix * vec3(aPoint1, 1.0)).xy;
     vec2 pointB = (translationMatrix * vec3(aPoint2, 1.0)).xy;
 
     vec2 xBasis = pointB - pointA;
-    vec2 norm = normalize(vec2(-xBasis.y, xBasis.x));
+    vec2 norm = normalize(vec2(xBasis.y, -xBasis.x));
 
     //+ 0.00001 * (aNext - aPrev)
 
@@ -38,17 +41,59 @@ void main(void){
     float vertexNum = aVertexJoint - type * 16.0;
     float dx = 0.0, dy = 1.0;
 
-    float resolution = 1.0;
     float lineWidth = aLineStyle * 0.5;
     vec2 pos;
     if (type == 0.0) {
         pos = pointA;
-        vDistance = vec2(0.0, 1.0);
+        vDistance = vec4(0.0, 0.0, 0.0, 1.0);
+    } else if (type >= 32.0) {
+        // Fill AA
+
+        float flags = type - 32.0;
+        float flag3 = floor(flags / 4.0);
+        float flag2 = floor((flags - flag3 * 4.0) / 2.0);
+        float flag1 = flags - flag3 * 4.0 - flag2 * 2.0;
+
+        vec2 prev = (translationMatrix * vec3(aPrev, 1.0)).xy;
+
+        if (vertexNum < 0.5) {
+            pos = prev;
+        } else if (vertexNum < 1.5) {
+            pos = pointA;
+        } else {
+            pos = pointB;
+        }
+        vec2 bisect = (translationMatrix * vec3(aNext, 0.0)).xy;
+
+        vec2 n1 = normalize(vec2(pointA.y - prev.y, -(pointA.x - prev.x)));
+        vec2 n2 = normalize(vec2(pointB.y - pointA.y, -(pointB.x - pointA.x)));
+        vec2 n3 = normalize(vec2(prev.y - pointB.y, -(prev.x - pointB.x)));
+
+        if (n1.x * n2.y - n1.y * n2.x < 0.0) {
+            n1 = -n1;
+            n2 = -n2;
+            n3 = -n3;
+        }
+
+        vDistance.w = 1.0;
+        pos += bisect * expand;
+
+        vDistance = vec4(16.0, 16.0, 16.0, -1.0);
+        if (flag1 > 0.5) {
+            vDistance.x = -dot(pos - prev, n1);
+        }
+        if (flag2 > 0.5) {
+            vDistance.y = -dot(pos - pointA, n2);
+        }
+        if (flag3 > 0.5) {
+            vDistance.z = -dot(pos - pointB, n3);
+        }
+        vDistance.xyz *= resolution;
     } else {
         vec2 prev = (translationMatrix * vec3(aPrev, 1.0)).xy;
         vec2 next = (translationMatrix * vec3(aNext, 1.0)).xy;
 
-        float dy = lineWidth + resolution;
+        float dy = lineWidth + expand;
         if (vertexNum >= 1.5) {
             dy = -dy;
         }
@@ -56,11 +101,11 @@ void main(void){
         if (vertexNum < 0.5 || vertexNum > 2.5) {
             vec2 prev = (translationMatrix * vec3(aPrev, 1.0)).xy;
             base = pointA;
-            norm2 = normalize(vec2(aPrev.y - pointA.y, pointA.x - aPrev.x));
+            norm2 = normalize(vec2(pointA.y - aPrev.y, -(pointA.x - aPrev.x)));
         } else {
             vec2 next = (translationMatrix * vec3(aNext, 1.0)).xy;
             base = pointB;
-            norm2 = normalize(vec2(pointB.y - next.y, next.x - pointB.x));
+            norm2 = normalize(vec2(next.y - pointB.y, -(next.x - pointB.x)));
         }
         if (abs(dot(norm, norm2)) > -0.001) {
             vec2 bisect = (norm + norm2) / 2.0;
@@ -71,7 +116,7 @@ void main(void){
             pos = base + dy * norm;
         }
 
-        vDistance = vec2(dy, lineWidth);
+        vDistance = vec4(dy, 0.0, 0.0, lineWidth) * resolution;
     }
 
     gl_Position = vec4((projectionMatrix * vec3(pos, 1.0)).xy, 0.0, 1.0);
@@ -81,29 +126,37 @@ void main(void){
 
 const frag = `
 varying vec4 vColor;
-varying vec2 vDistance;
+varying vec4 vDistance;
 
 //%forloop% %count%
 
 void main(void){
-    float left = max(vDistance.x - 0.5, -vDistance.y);
-    float right = min(vDistance.x + 0.5, vDistance.y);
+    float alpha = 1.0;
+    if (vDistance.w >= 0.0) {
+        float left = max(vDistance.x - 0.5, -vDistance.w);
+        float right = min(vDistance.x + 0.5, vDistance.w);
+        alpha = right - left;
+    } else {
+        alpha *= max(min(vDistance.x + 0.5, 1.0), 0.0);
+        alpha *= max(min(vDistance.y + 0.5, 1.0), 0.0);
+        alpha *= max(min(vDistance.z + 0.5, 1.0), 0.0);
+    }
 
-    gl_FragColor = vColor * (right - left);
+    gl_FragColor = vColor * alpha;
 }
 `;
 
 export class SmoothShaderGenerator extends BatchShaderGenerator {
-    generateShader(maxTextures: number): Shader
-    {
-        if (!this.programCache[maxTextures])
-        {
+    generateShader(maxTextures: number): Shader {
+        if (!this.programCache[maxTextures]) {
             this.programCache[maxTextures] = new Program(this.vertexSrc, this.fragTemplate);
         }
 
         const uniforms = {
             tint: new Float32Array([1, 1, 1, 1]),
             translationMatrix: new Matrix(),
+            resolution: 1,
+            expand: 1,
         };
 
         return new Shader(this.programCache[maxTextures], uniforms);

@@ -1,5 +1,6 @@
 const app = new PIXI.Application({ antialias: false,
-    width: 800, height: 1200
+    width: 800, height: 600 * 2,
+    autoDensity: true, resolution: 1.0,
 });
 document.body.appendChild(app.view);
 
