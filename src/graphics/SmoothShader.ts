@@ -8,7 +8,11 @@ import {
 } from '@pixi/core';
 import {Matrix} from '@pixi/math';
 
-const vert = `precision highp float;
+const vert = `const float BEVEL = 8.0;
+const float MITER = 12.0;
+const float ROUND = 16.0;
+
+precision highp float;
 attribute vec2 aPrev;
 attribute vec2 aPoint1;
 attribute vec2 aPoint2;
@@ -28,12 +32,32 @@ varying vec4 vDistance;
 uniform float resolution;
 uniform float expand;
 
+vec2 doBisect(vec2 norm, float len, vec2 norm2, float len2,
+    float dy, float inner) {
+    vec2 bisect = (norm + norm2) / 2.0;
+    bisect /= dot(norm, bisect);
+    vec2 shift = dy * bisect;
+    if (inner > 0.5) {
+        if (len < len2) {
+            if (abs(dy * (bisect.x * norm.y - bisect.y * norm.x)) > len) {
+                return dy * norm;
+            }
+        } else {
+            if (abs(dy * (bisect.x * norm2.y - bisect.y * norm2.x)) > len2) {
+                return dy * norm;
+            }
+        }
+    }
+    return dy * bisect;
+}
+
 void main(void){
     vec2 pointA = (translationMatrix * vec3(aPoint1, 1.0)).xy;
     vec2 pointB = (translationMatrix * vec3(aPoint2, 1.0)).xy;
 
     vec2 xBasis = pointB - pointA;
-    vec2 norm = normalize(vec2(xBasis.y, -xBasis.x));
+    float len = length(xBasis);
+    vec2 norm = vec2(xBasis.y, -xBasis.x) / len;
 
     float type = floor(aVertexJoint / 16.0);
     float vertexNum = aVertexJoint - type * 16.0;
@@ -61,10 +85,10 @@ void main(void){
         } else {
             pos = pointB;
         }
-        float len = length(aNext);
+        float len2 = length(aNext);
         vec2 bisect = (translationMatrix * vec3(aNext, 0.0)).xy;
-        if (len > 0.01) {
-            bisect = normalize(bisect) * len;
+        if (len2 > 0.01) {
+            bisect = normalize(bisect) * len2;
         }
 
         vec2 n1 = normalize(vec2(pointA.y - prev.y, -(pointA.x - prev.x)));
@@ -92,34 +116,73 @@ void main(void){
         }
         vDistance.xyz *= resolution;
     } else {
-        vec2 prev = (translationMatrix * vec3(aPrev, 1.0)).xy;
-        vec2 next = (translationMatrix * vec3(aNext, 1.0)).xy;
-
         float dy = lineWidth + expand;
+        float inner = 0.0;
         if (vertexNum >= 1.5) {
             dy = -dy;
+            inner = 1.0;
         }
-        vec2 base, bisect, norm2;
-        if (vertexNum < 0.5 || vertexNum > 2.5) {
-            vec2 prev = (translationMatrix * vec3(aPrev, 1.0)).xy;
+
+        vec2 base, next, xBasis2, bisect;
+        float flag = 0.0;
+        float sign2 = 1.0;
+        if (vertexNum < 0.5 || vertexNum > 2.5 && vertexNum < 3.5) {
+            next = (translationMatrix * vec3(aPrev, 1.0)).xy;
             base = pointA;
-            norm2 = normalize(vec2(pointA.y - prev.y, -(pointA.x - prev.x)));
+            flag = type - floor(type / 2.0) * 2.0;
+            sign2 = -1.0;
         } else {
-            vec2 next = (translationMatrix * vec3(aNext, 1.0)).xy;
+            next = (translationMatrix * vec3(aNext, 1.0)).xy;
             base = pointB;
-            norm2 = normalize(vec2(next.y - pointB.y, -(next.x - pointB.x)));
+            if (type >= MITER && type < ROUND) {
+                flag = step(14.0, type);
+                // check miter limit here?
+            }
         }
-        if (abs(norm.x * norm2.y - norm.y * norm2.x) > 0.01
-            && dot(norm, norm2) > -0.01) {
-            vec2 bisect = (norm + norm2) / 2.0;
-            bisect /= dot(norm, bisect);
+        xBasis2 = next - base;
+        float len2 = length(xBasis2);
+        vec2 norm2 = vec2(xBasis2.y, -xBasis2.x) / len2;
+        float D = norm.x * norm2.y - norm.y * norm2.x;
+        if (D < 0.0) {
+            inner = 1.0 - inner;
+        }
+        norm2 *= sign2;
 
-            pos = base + dy * bisect;
+        float dy2 = 0.0;
+
+        if (abs(D) < 0.01) {
+            pos = dy * norm;
         } else {
-            pos = base + dy * norm;
+            if (vertexNum < 3.5) {
+                if (flag < 0.5 && inner < 0.5) {
+                    pos = dy * norm;
+                } else {
+                    pos = doBisect(norm, len, norm2, len2, dy, inner);
+                }
+            } else {
+                if (inner < 0.5) {
+                    dy = -dy;
+                }
+                vec2 norm3 = normalize((norm + norm2) / 2.0);
+                if (vertexNum < 4.5) {
+                    pos = doBisect(norm, len, norm2, len2, dy, 1.0);
+                    dy2 = dot(pos + dy * norm, norm3);
+                    if (dy2 > 0.0) {
+                        dy2 = -dy2;
+                    }
+                } else /*if (type >= BEVEL && type < MITER)*/ {
+                    dy = -dy;
+                    vec2 norm3 = normalize((norm + norm2) / 2.0);
+                    if (vertexNum < 5.5) {
+                        pos = dy * norm;
+                    } else {
+                        pos = dy * norm2;
+                    }
+                }
+            }
         }
-
-        vDistance = vec4(dy, 0.0, 0.0, lineWidth) * resolution;
+        pos += base;
+        vDistance = vec4(dy, dy2, 0.0, lineWidth) * resolution;
     }
 
     gl_Position = vec4((projectionMatrix * vec3(pos, 1.0)).xy, 0.0, 1.0);
@@ -138,7 +201,9 @@ void main(void){
     if (vDistance.w >= 0.0) {
         float left = max(vDistance.x - 0.5, -vDistance.w);
         float right = min(vDistance.x + 0.5, vDistance.w);
-        alpha = right - left;
+        float top = vDistance.y - 0.5;
+        float bottom = min(vDistance.y + 0.5, 0.5);
+        alpha = max(right - left, 0.0) * max(bottom - top, 0.0);
     } else {
         alpha *= max(min(vDistance.x + 0.5, 1.0), 0.0);
         alpha *= max(min(vDistance.y + 0.5, 1.0), 0.0);

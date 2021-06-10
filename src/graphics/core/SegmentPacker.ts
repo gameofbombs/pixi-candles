@@ -34,21 +34,7 @@ export class SegmentPacker {
 
             const vs = SegmentPacker.vertsByJoint[joint];
             vertexSize += vs;
-
-            switch (vs) {
-                case 3:
-                    indexSize += 3;
-                    break;
-                case 4:
-                    indexSize += 6;
-                    break;
-                case 8:
-                    indexSize += 12;
-                    break;
-                case 9:
-                    indexSize += 15;
-                    break;
-            }
+            indexSize += (vs - 2) * 3;
         }
         if (foundTriangle) {
             indexSize += triangles;
@@ -159,10 +145,6 @@ export class SegmentPacker {
 
             const vs = SegmentPacker.vertsByJoint[joint];
 
-            if (vs !== 4) {
-                break;
-            }
-
             x1 = verts[j * 2];
             y1 = verts[j * 2 + 1];
             x2 = verts[j * 2 + 2];
@@ -180,7 +162,7 @@ export class SegmentPacker {
             }
             type = joint;
 
-            for (let i = 0; i < 4; i++) {
+            for (let i = 0; i < vs; i++) {
                 bufFloat[bufPos] = prevX;
                 bufFloat[bufPos + 1] = prevY;
                 bufFloat[bufPos + 2] = x1;
@@ -202,9 +184,14 @@ export class SegmentPacker {
             indices[indPos + 3] = index;
             indices[indPos + 4] = index + 2;
             indices[indPos + 5] = index + 3;
-
             indPos += 6;
-            index += 4;
+            for (let j = 5; j + 1 < vs; j++) {
+                indices[indPos] = index + 4;
+                indices[indPos + 1] = index + j;
+                indices[indPos + 2] = index + j + 1;
+                indPos += 3;
+            }
+            index += vs;
         }
 
         if (hasTriangle) {
@@ -237,14 +224,14 @@ verts[JOINT_TYPE.JOINT_CAP_ROUND] = 4;
 verts[JOINT_TYPE.JOINT_CAP_ROUND + 1] = 4;
 verts[JOINT_TYPE.JOINT_CAP_SQUARE] = 4;
 verts[JOINT_TYPE.JOINT_CAP_SQUARE + 1] = 4;
-verts[JOINT_TYPE.JOINT_BEVEL] = 4;
-verts[JOINT_TYPE.JOINT_BEVEL + 1] = 4;
-verts[JOINT_TYPE.JOINT_ROUND] = 4;
-verts[JOINT_TYPE.JOINT_ROUND + 1] = 4;
-verts[JOINT_TYPE.JOINT_MITER] = 4;
-verts[JOINT_TYPE.JOINT_MITER + 1] = 4;
-verts[JOINT_TYPE.JOINT_MITER + 2] = 4;
-verts[JOINT_TYPE.JOINT_MITER + 3] = 4;
+verts[JOINT_TYPE.JOINT_BEVEL] = 4 + 3;
+verts[JOINT_TYPE.JOINT_BEVEL + 1] = 4 + 3;
+verts[JOINT_TYPE.JOINT_ROUND] = 4 + 3;
+verts[JOINT_TYPE.JOINT_ROUND + 1] = 4 + 3;
+verts[JOINT_TYPE.JOINT_MITER] = 4 + 3;
+verts[JOINT_TYPE.JOINT_MITER + 1] = 4 + 3;
+verts[JOINT_TYPE.JOINT_MITER + 2] = 4 + 3;
+verts[JOINT_TYPE.JOINT_MITER + 3] = 4 + 3;
 
 // verts[JOINT_TYPE.JOINT_CAP_ROUND] = 4 + 4;
 // verts[JOINT_TYPE.JOINT_CAP_SQUARE] = 4 + 4;
@@ -253,6 +240,6 @@ verts[JOINT_TYPE.JOINT_MITER + 3] = 4;
 // verts[JOINT_TYPE.JOINT_MITER] = 4 + 5;
 // verts[JOINT_TYPE.JOINT_MITER_GOOD] = 4 + 4;
 
-verts[JOINT_TYPE.CAP_ROUND] = 4;
-verts[JOINT_TYPE.CAP_SQUARE] = 4;
+// verts[JOINT_TYPE.CAP_ROUND] = 4;
+// verts[JOINT_TYPE.CAP_SQUARE] = 4;
 verts[JOINT_TYPE.CAP_BUTT] = 0;

@@ -15,27 +15,28 @@ app.stage.addChild(graphics2);
 
 let phase = 0;
 
-function makeFigures(graphics) {
-    graphics.clear();
+function addLine(graphics, y, len, rad) {
     graphics.lineStyle({ width: 30, color: 0, alpha: 1, join: PIXI.LINE_JOIN.MITER});
-
-    const rad = 70;
-
-    graphics.moveTo(100, 100);
-    graphics.lineTo(150, 100);
-    graphics.lineTo(150 + Math.cos(phase) * rad, 100 + Math.sin(phase) * rad);
+    graphics.moveTo(150 - len, y);
+    graphics.lineTo(150, y);
+    graphics.lineTo(150 + Math.cos(phase) * rad, y + Math.sin(phase) * rad);
 
     graphics.lineStyle({ width: 30, color: 0, alpha: 1, join: PIXI.LINE_JOIN.BEVEL});
-
-    graphics.moveTo(300, 100);
-    graphics.lineTo(350, 100);
-    graphics.lineTo(350 + Math.cos(phase) * rad, 100 + Math.sin(phase) * rad);
+    graphics.moveTo(350 - len, y);
+    graphics.lineTo(350, y);
+    graphics.lineTo(350 + Math.cos(phase) * rad, y + Math.sin(phase) * rad);
 
     graphics.lineStyle({ width: 30, color: 0, alpha: 1, join: PIXI.LINE_JOIN.ROUND});
+    graphics.moveTo(550 - len, y);
+    graphics.lineTo(550, y);
+    graphics.lineTo(550 + Math.cos(phase) * rad, y + Math.sin(phase) * rad);
+}
 
-    graphics.moveTo(500, 100);
-    graphics.lineTo(550, 100);
-    graphics.lineTo(550 + Math.cos(phase) * rad, 100 + Math.sin(phase) * rad);
+function makeFigures(graphics) {
+    graphics.clear();
+
+    addLine(graphics, 100, 50, 70);
+    addLine(graphics, 200, 70, 50);
 }
 
 // graphics.rotation = Math.PI * 3 / 2 - 0.0001;
