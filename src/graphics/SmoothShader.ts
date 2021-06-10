@@ -11,6 +11,7 @@ import {Matrix} from '@pixi/math';
 const vert = `const float BEVEL = 8.0;
 const float MITER = 12.0;
 const float ROUND = 16.0;
+const float MITER_LIMIT = 10.0;
 
 precision highp float;
 attribute vec2 aPrev;
@@ -28,6 +29,7 @@ uniform vec4 tint;
 varying vec4 vSignedCoord;
 varying vec4 vColor;
 varying vec4 vDistance;
+varying float vType;
 
 uniform float resolution;
 uniform float expand;
@@ -68,6 +70,7 @@ void main(void){
     if (type == 0.0) {
         pos = pointA;
         vDistance = vec4(0.0, 0.0, 0.0, 1.0);
+        vType = 0.0;
     } else if (type >= 32.0) {
         // Fill AA
 
@@ -115,6 +118,7 @@ void main(void){
             vDistance.z = -dot(pos - pointB, n3);
         }
         vDistance.xyz *= resolution;
+        vType = 1.0;
     } else {
         float dy = lineWidth + expand;
         float inner = 0.0;
@@ -148,8 +152,10 @@ void main(void){
         }
         norm2 *= sign2;
 
-        float dy2 = 0.0;
+        float dy2 = -0.5;
+        float dy3 = -0.5;
 
+        vType = 0.0;
         if (abs(D) < 0.01) {
             pos = dy * norm;
         } else {
@@ -159,30 +165,80 @@ void main(void){
                 } else {
                     pos = doBisect(norm, len, norm2, len2, dy, inner);
                 }
-            } else {
-                if (inner < 0.5) {
+            } else if (type >= ROUND && type < ROUND + 1.5) {
+                if (inner > 0.5) {
                     dy = -dy;
+                    inner = 0.0;
                 }
-                vec2 norm3 = normalize((norm + norm2) / 2.0);
                 if (vertexNum < 4.5) {
-                    pos = doBisect(norm, len, norm2, len2, dy, 1.0);
-                    dy2 = dot(pos + dy * norm, norm3);
-                    if (dy2 > 0.0) {
-                        dy2 = -dy2;
+                    pos = doBisect(norm, len, norm2, len2, -dy, 1.0);
+                } else if (vertexNum < 5.5) {
+                    pos = dy * norm;
+                } else if (vertexNum > 7.5) {
+                    pos = dy * norm2;
+                } else {
+                    pos = doBisect(norm, len, norm2, len2, dy, 0.0);
+                    float d2 = abs(dy);
+                    if (length(pos) > abs(dy) * 1.5) {
+                        if (vertexNum < 6.5) {
+                            pos.x = dy * norm.x - d2 * norm.y;
+                            pos.y = dy * norm.y + d2 * norm.x;
+                        } else {
+                            pos.x = dy * norm2.x + d2 * norm2.y;
+                            pos.y = dy * norm2.y - d2 * norm2.x;
+                        }
                     }
-                } else /*if (type >= BEVEL && type < MITER)*/ {
-                    dy = -dy;
-                    vec2 norm3 = normalize((norm + norm2) / 2.0);
-                    if (vertexNum < 5.5) {
-                        pos = dy * norm;
+                }
+                vec2 norm3 = normalize(norm - norm2);
+                dy = pos.x * norm3.y - pos.y * norm3.x - 3.0;
+                dy2 = pos.x;
+                dy3 = pos.y;
+                vType = 2.0;
+            } else {
+                if (type >= MITER && type < MITER + 3.5) {
+                    if (inner > 0.5) {
+                        dy = -dy;
+                        inner = 0.0;
+                    }
+                    pos = doBisect(norm, len, norm2, len2, dy, 0.0);
+                    if (length(pos) > abs(dy) * MITER_LIMIT) {
+                        type = BEVEL;
                     } else {
-                        pos = dy * norm2;
+                        if (vertexNum < 4.5) {
+                            dy = -dy;
+                            pos = doBisect(norm, len, norm2, len2, dy, 1.0);
+                            dy2 = -abs(dy);
+                            dy3 = -abs(dy);
+                        } else if (vertexNum < 5.5) {
+                            pos = dy * norm;
+                        } else if (vertexNum > 6.5) {
+                            pos = dy * norm2;
+                        }
+                    }
+                }
+                if (type >= BEVEL && type < BEVEL + 1.5) {
+                    if (inner < 0.5) {
+                        dy = -dy;
+                        inner = 1.0;
+                    }
+                    vec2 norm3 = normalize((norm + norm2) / 2.0);
+                    if (vertexNum < 4.5) {
+                        pos = doBisect(norm, len, norm2, len2, dy, 1.0);
+                        dy2 = -abs(dot(pos + dy * norm, norm3));
+                    } else {
+                        dy2 = 0.0;
+                        dy = -dy;
+                        if (vertexNum < 5.5) {
+                            pos = dy * norm;
+                        } else {
+                            pos = dy * norm2;
+                        }
                     }
                 }
             }
         }
         pos += base;
-        vDistance = vec4(dy, dy2, 0.0, lineWidth) * resolution;
+        vDistance = vec4(dy, dy2, dy3, lineWidth) * resolution;
     }
 
     gl_Position = vec4((projectionMatrix * vec3(pos, 1.0)).xy, 0.0, 1.0);
@@ -193,21 +249,31 @@ void main(void){
 const frag = `
 varying vec4 vColor;
 varying vec4 vDistance;
+varying float vType;
 
 //%forloop% %count%
 
 void main(void){
     float alpha = 1.0;
-    if (vDistance.w >= 0.0) {
+    if (vType < 0.5) {
         float left = max(vDistance.x - 0.5, -vDistance.w);
         float right = min(vDistance.x + 0.5, vDistance.w);
-        float top = vDistance.y - 0.5;
-        float bottom = min(vDistance.y + 0.5, 0.5);
-        alpha = max(right - left, 0.0) * max(bottom - top, 0.0);
-    } else {
+        float near = vDistance.y - 0.5;
+        float far = min(vDistance.y + 0.5, 0.0);
+        float top = vDistance.z - 0.5;
+        float bottom = min(vDistance.z + 0.5, 0.0);
+        alpha = max(right - left, 0.0) * max(bottom - top, 0.0) * max(far - near, 0.0);
+    } else if (vType < 1.5) {
         alpha *= max(min(vDistance.x + 0.5, 1.0), 0.0);
         alpha *= max(min(vDistance.y + 0.5, 1.0), 0.0);
         alpha *= max(min(vDistance.z + 0.5, 1.0), 0.0);
+    } else {
+        float dist2 = sqrt(dot(vDistance.yz, vDistance.yz));
+        float rad = vDistance.w;
+        float left = max(dist2 - 0.5, -rad);
+        float right = min(dist2 + 0.5, rad);
+        // TODO: something has to be done about artifact at vDistance.x far side
+        alpha = 1.0 - step(vDistance.x, 0.0) * (1.0 - max(right - left, 0.0));
     }
 
     gl_FragColor = vColor * alpha;

@@ -13,7 +13,7 @@ PIXI.Graphics.prototype.drawStar = PIXI.candles.SmoothGraphics.prototype.drawSta
 graphics2.y = 300;
 app.stage.addChild(graphics2);
 
-let phase = 0;
+let phase = 0;// -Math.PI/2;
 
 function addLine(graphics, y, len, rad) {
     graphics.lineStyle({ width: 30, color: 0, alpha: 1, join: PIXI.LINE_JOIN.MITER});
