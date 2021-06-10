@@ -22,7 +22,7 @@ export class SegmentPacker {
                 continue;
             }
 
-            if (joint >= JOINT_TYPE.FILL_AA) {
+            if (joint >= JOINT_TYPE.FILL_EXPAND) {
                 vertexSize += 3;
                 indexSize += 3;
                 continue;
@@ -120,7 +120,7 @@ export class SegmentPacker {
                 continue;
             }
 
-            if (joint >= JOINT_TYPE.FILL_AA) {
+            if (joint >= JOINT_TYPE.FILL_EXPAND) {
                 prevX = verts[j * 2];
                 prevY = verts[j * 2 + 1];
                 x1 = verts[j * 2 + 2];
@@ -226,7 +226,7 @@ for (let i = 0; i < 48; i++)
 verts[JOINT_TYPE.FILL] = 1;
 
 for (let i = 0; i < 8; i++) {
-    verts[JOINT_TYPE.FILL_AA + i] = 3;
+    verts[JOINT_TYPE.FILL_EXPAND + i] = 3;
 }
 verts[JOINT_TYPE.JOINT_CAP_BUTT] = 4;
 

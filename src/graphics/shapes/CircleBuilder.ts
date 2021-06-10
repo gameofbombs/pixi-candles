@@ -89,7 +89,7 @@ export class CircleBuilder implements IShapeBuilder {
             verts.push((points[next] - cx) / rad);
             verts.push((points[next + 1] - cy) / rad);
 
-            joints.push(JOINT_TYPE.FILL_AA + 2);
+            joints.push(JOINT_TYPE.FILL_EXPAND + 2);
             joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
             joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
             joints.push(JOINT_TYPE.JOINT_CAP_BUTT);

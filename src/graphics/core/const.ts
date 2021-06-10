@@ -9,5 +9,6 @@ export enum JOINT_TYPE {
     CAP_BUTT = 20,
     CAP_SQUARE = 22,
     CAP_ROUND = 24,
-    FILL_AA = 32,
+    FILL_EXPAND = 32,
+    FILL_REDUCE = 33,
 }

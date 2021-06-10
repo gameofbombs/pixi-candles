@@ -278,7 +278,7 @@ export class PolyBuilder implements IShapeBuilder {
                     flag |= (1 << j);
                 }
             }
-            joints.push(JOINT_TYPE.FILL_AA + flag);
+            joints.push(JOINT_TYPE.FILL_EXPAND + flag);
             joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
             joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
             joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
