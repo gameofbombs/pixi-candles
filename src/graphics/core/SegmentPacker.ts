@@ -171,7 +171,7 @@ export class SegmentPacker {
             prevX = verts[j * 2 - 2];
             prevY = verts[j * 2 - 1];
 
-            if (joint !== JOINT_TYPE.JOINT_CAP_BUTT) {
+            if ((joint & ~2) !== JOINT_TYPE.JOINT_CAP_BUTT) {
                 nextX = verts[j * 2 + 4];
                 nextY = verts[j * 2 + 5];
             } else {
@@ -228,9 +228,11 @@ verts[JOINT_TYPE.FILL] = 1;
 for (let i = 0; i < 8; i++) {
     verts[JOINT_TYPE.FILL_EXPAND + i] = 3;
 }
-verts[JOINT_TYPE.JOINT_CAP_BUTT] = 4;
 
 // no caps for now
+verts[JOINT_TYPE.JOINT_CAP_BUTT] = 4;
+verts[JOINT_TYPE.JOINT_CAP_BUTT + 1] = 4;
+verts[JOINT_TYPE.JOINT_CAP_SQUARE + 1] = 4;
 verts[JOINT_TYPE.JOINT_CAP_ROUND] = 4;
 verts[JOINT_TYPE.JOINT_CAP_ROUND + 1] = 4;
 verts[JOINT_TYPE.JOINT_CAP_SQUARE] = 4;
