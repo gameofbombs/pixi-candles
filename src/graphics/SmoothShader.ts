@@ -69,7 +69,7 @@ void main(void){
     vec2 pos;
     if (type == 0.0) {
         pos = pointA;
-        vDistance = vec4(0.0, 0.0, 0.0, 1.0);
+        vDistance = vec4(0.0, -0.5, -0.5, 1.0);
         vType = 0.0;
     } else if (type >= 32.0) {
         // Fill AA
