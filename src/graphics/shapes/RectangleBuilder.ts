@@ -32,15 +32,15 @@ export class RectangleBuilder implements IShapeBuilder {
         const len = points.length;
 
         verts.push(points[len - 2], points[len - 1]);
-        joints.push(JOINT_TYPE.CAP_BUTT);
+        joints.push(JOINT_TYPE.NONE);
         for (let i = 0; i < len; i += 2) {
             verts.push(points[i], points[i + 1]);
             joints.push(joint + 3);
         }
         verts.push(points[0], points[1]);
-        joints.push(JOINT_TYPE.CAP_BUTT);
+        joints.push(JOINT_TYPE.NONE);
         verts.push(points[2], points[3]);
-        joints.push(JOINT_TYPE.CAP_BUTT);
+        joints.push(JOINT_TYPE.NONE);
     }
 
     fill(graphicsData: SmoothGraphicsData, target: BuildData): void {
@@ -56,7 +56,7 @@ export class RectangleBuilder implements IShapeBuilder {
             points[4], points[5],
             points[6], points[7]);
 
-        joints.push(0, 0, 0, 0);
+        joints.push(JOINT_TYPE.FILL, JOINT_TYPE.FILL, JOINT_TYPE.FILL, JOINT_TYPE.FILL);
         triangles.push(0, 1, 2, 0, 2, 3);
     }
 }

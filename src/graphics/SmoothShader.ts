@@ -8,9 +8,13 @@ import {
 } from '@pixi/core';
 import {Matrix} from '@pixi/math';
 
-const vert = `const float BEVEL = 8.0;
-const float MITER = 12.0;
-const float ROUND = 16.0;
+const vert = `
+const float FILL = 1.0;
+const float BEVEL = 4.0;
+const float MITER = 8.0;
+const float ROUND = 12.0;
+const float FILL_EXPAND = 24.0;
+
 const float MITER_LIMIT = 10.0;
 
 precision highp float;
@@ -65,16 +69,18 @@ void main(void){
     float vertexNum = aVertexJoint - type * 16.0;
     float dx = 0.0, dy = 1.0;
 
+    float capType = floor(type / 32.0);
+    type -= capType * 32.0;
+
     float lineWidth = aLineStyle.x * 0.5;
     vec2 pos;
-    if (type == 0.0) {
+    if (type == FILL) {
         pos = pointA;
         vDistance = vec4(0.0, -0.5, -0.5, 1.0);
         vType = 0.0;
-    } else if (type >= 32.0) {
-        // Fill AA
-
-        float flags = type - 32.0;
+    } else if (type >= FILL_EXPAND && type < FILL_EXPAND + 7.5) {
+        // expand vertices
+        float flags = type - FILL_EXPAND;
         float flag3 = floor(flags / 4.0);
         float flag2 = floor((flags - flag3 * 4.0) / 2.0);
         float flag1 = flags - flag3 * 4.0 - flag2 * 2.0;
@@ -119,7 +125,7 @@ void main(void){
         }
         vDistance.xyz *= resolution;
         vType = 1.0;
-    } else {
+    } else if (type >= BEVEL) {
         float dy = lineWidth + expand;
         float inner = 0.0;
         if (vertexNum >= 1.5) {
@@ -138,8 +144,8 @@ void main(void){
         } else {
             next = (translationMatrix * vec3(aNext, 1.0)).xy;
             base = pointB;
-            if (type >= MITER && type < ROUND) {
-                flag = step(14.0, type);
+            if (type >= MITER && type < MITER + 3.5) {
+                flag = step(MITER + 1.5, type);
                 // check miter limit here?
             }
         }

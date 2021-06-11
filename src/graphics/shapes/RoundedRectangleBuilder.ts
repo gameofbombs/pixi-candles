@@ -94,13 +94,13 @@ export class RoundedRectangleBuilder implements IShapeBuilder {
         const len = points.length;
 
         verts.push(points[len - 2], points[len - 1]);
-        joints.push(JOINT_TYPE.CAP_BUTT);
+        joints.push(JOINT_TYPE.NONE);
         for (let i = 0; i < len; i += 2) {
             verts.push(points[i], points[i + 1]);
-            joints.push(joint);
+            joints.push(joint + 3);
         }
         verts.push(points[0], points[1]);
-        joints.push(JOINT_TYPE.CAP_BUTT);
+        joints.push(JOINT_TYPE.NONE);
     }
 
     fill(graphicsData: SmoothGraphicsData, target: BuildData): void {
@@ -114,7 +114,7 @@ export class RoundedRectangleBuilder implements IShapeBuilder {
         for (let i = 0, j = points.length; i < j; i++)
         {
             verts.push(points[i], points[++i]);
-            joints.push(0);
+            joints.push(JOINT_TYPE.FILL);
         }
     }
 }

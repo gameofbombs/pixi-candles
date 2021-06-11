@@ -12,7 +12,7 @@ import {
 
 import { Texture, UniformGroup, State, Renderer, BatchDrawCall, Shader } from '@pixi/core';
 import { graphicsUtils, LINE_JOIN, LINE_CAP, FillStyle, LineStyle,
-    ILineStyleOptions, IFillStyleOptions, Graphics } from '@pixi/graphics';
+    ILineStyleOptions, IFillStyleOptions as IFillStyleOptionsBase, Graphics } from '@pixi/graphics';
 import { hex2rgb } from '@pixi/utils';
 import { SmoothGraphicsGeometry } from './SmoothGraphicsGeometry';
 import { BLEND_MODES } from '@pixi/constants';
@@ -26,6 +26,23 @@ const { BezierUtils, QuadraticUtils, ArcUtils } = graphicsUtils;
 const temp = new Float32Array(3);
 // a default shaders map used by graphics..
 const DEFAULT_SHADERS: {[key: string]: Shader} = {};
+
+export interface IFillStyleOptions extends IFillStyleOptionsBase {
+    smooth?: boolean;
+}
+
+FillStyle.prototype.clone = function(this: any) {
+    const obj: any = new FillStyle();
+
+    obj.color = this.color;
+    obj.alpha = this.alpha;
+    obj.texture = this.texture;
+    obj.matrix = this.matrix;
+    obj.visible = this.visible;
+    obj.smooth = this.smooth;
+
+    return obj;
+}
 
 export class SmoothGraphics extends Container
 {
@@ -379,9 +396,9 @@ export class SmoothGraphics extends Container
         return this;
     }
 
-    public beginFill(color = 0, alpha = 1): this
+    public beginFill(color = 0, alpha = 1, smooth = false): this
     {
-        return this.beginTextureFill({ texture: Texture.WHITE, color, alpha });
+        return this.beginTextureFill({ texture: Texture.WHITE, color, alpha, smooth });
     }
 
     beginTextureFill(options?: IFillStyleOptions): this
@@ -392,6 +409,7 @@ export class SmoothGraphics extends Container
             color: 0xFFFFFF,
             alpha: 1,
             matrix: null,
+            smooth: false,
         }, options) as IFillStyleOptions;
 
         if (this.currentPath)

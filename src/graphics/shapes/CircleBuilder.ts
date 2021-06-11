@@ -61,7 +61,7 @@ export class CircleBuilder implements IShapeBuilder {
         if (!graphicsData.fillAA) {
             for (let i = 0; i < points.length; i += 2) {
                 verts.push(points[i], points[i + 1]);
-                joints.push(0);
+                joints.push(JOINT_TYPE.FILL);
                 if (i > 2) {
                     triangles.push(vertPos++, center, vertPos);
                 }
@@ -90,11 +90,11 @@ export class CircleBuilder implements IShapeBuilder {
             verts.push((points[next + 1] - cy) / rad);
 
             joints.push(JOINT_TYPE.FILL_EXPAND + 2);
-            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
-            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
-            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
-            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
-            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
+            joints.push(JOINT_TYPE.NONE);
+            joints.push(JOINT_TYPE.NONE);
+            joints.push(JOINT_TYPE.NONE);
+            joints.push(JOINT_TYPE.NONE);
+            joints.push(JOINT_TYPE.NONE);
         }
     }
 
@@ -105,14 +105,14 @@ export class CircleBuilder implements IShapeBuilder {
         const len = points.length;
 
         verts.push(points[len - 2], points[len - 1]);
-        joints.push(JOINT_TYPE.CAP_BUTT);
+        joints.push(JOINT_TYPE.NONE);
         for (let i = 2; i < len; i += 2) {
             verts.push(points[i], points[i + 1]);
-            joints.push(joint);
+            joints.push(joint + 3);
         }
         verts.push(points[2], points[3]);
-        joints.push(JOINT_TYPE.CAP_BUTT);
+        joints.push(JOINT_TYPE.NONE);
         verts.push(points[4], points[5]);
-        joints.push(JOINT_TYPE.CAP_BUTT);
+        joints.push(JOINT_TYPE.NONE);
     }
 }

@@ -28,9 +28,10 @@ function makeFigures(graphics) {
     graphics.drawRect(530, 50, 140, 100);
     graphics.endFill();
 
+// third param for beginFIll, smooth param should be set for fill, if lineStyle doesnt cover the edges of fill
 // Circle
     graphics.lineStyle(0); // draw a circle, set the lineStyle to zero so the circle doesn't have an outline
-    graphics.beginFill(0xDE3249, 1);
+    graphics.beginFill(0xDE3249, 1.0, true);
     graphics.drawCircle(100, 250, 50);
     graphics.endFill();
 
@@ -42,7 +43,7 @@ function makeFigures(graphics) {
 
 // Circle + line style 2
     graphics.lineStyle(10, 0xFFBD01, 0.5);
-    graphics.beginFill(0xC34288, 1);
+    graphics.beginFill(0xDE3249, 1.0, true);
     graphics.drawCircle(400, 250, 50);
     graphics.endFill();
 
@@ -70,7 +71,7 @@ function makeFigures(graphics) {
 
 // draw star
     graphics.lineStyle(2, 0xFFFFFF);
-//graphics.beginFill(0x35CC5A, 1);
+    graphics.beginFill(0x35CC5A, 1);
     graphics.drawStar(360, 370, 5, 50);
     graphics.endFill();
 
@@ -90,7 +91,7 @@ function makeFigures(graphics) {
     const path = [600, 370, 700, 460, 780, 420, 730, 570, 590, 520];
 
     graphics.lineStyle(0);
-    graphics.beginFill(0x3500FA, 1);
+    graphics.beginFill(0x3500FA, 1.0, true);
     graphics.drawPolygon(path);
     graphics.endFill();
 }

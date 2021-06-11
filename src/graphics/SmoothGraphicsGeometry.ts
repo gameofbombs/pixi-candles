@@ -371,7 +371,8 @@ export class SmoothGraphicsGeometry extends Geometry {
                 if (holes.length) {
                     this.processHoles(holes);
                 }
-                data.fillAA = !(data.lineStyle.visible
+                data.fillAA = (data.fillStyle as any).smooth
+                    && !(data.lineStyle.visible
                     && data.lineStyle.alpha >= 0.99
                     && data.lineStyle.width >= 0.99);
 

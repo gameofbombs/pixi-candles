@@ -104,16 +104,25 @@ export class PolyBuilder implements IShapeBuilder {
 
         let joint = graphicsData.jointType();
         let cap = graphicsData.capType();
+        let prevCap = 0;
 
         let prevX: number, prevY: number;
         if (closeStroke) {
             prevX = points[len - 2];
             prevY = points[len - 1];
-            joints.push(JOINT_TYPE.CAP_BUTT);
+            joints.push(JOINT_TYPE.NONE);
         } else {
             prevX = points[2];
             prevY = points[3];
-            joints.push(cap);
+            if (cap === JOINT_TYPE.CAP_ROUND) {
+                verts.push(points[0], points[1]);
+                joints.push(JOINT_TYPE.NONE);
+                joints.push(JOINT_TYPE.CAP_ROUND);
+                prevCap = 0;
+            } else {
+                prevCap = cap;
+                joints.push(JOINT_TYPE.NONE);
+            }
         }
         verts.push(prevX, prevY);
 
@@ -139,18 +148,29 @@ export class PolyBuilder implements IShapeBuilder {
                 nextX = points[2];
                 nextY = points[3];
                 if (!closeStroke) {
-                    endJoint = JOINT_TYPE.CAP_BUTT;
+                    endJoint = JOINT_TYPE.NONE;
                 }
             } else if (i + 4 >= len) {
                 nextX = points[0];
                 nextY = points[1];
                 if (!closeStroke) {
-                    endJoint = cap - JOINT_TYPE.CAP_BUTT + JOINT_TYPE.JOINT_CAP_BUTT;
+                    if (cap === JOINT_TYPE.CAP_ROUND) {
+                        endJoint = JOINT_TYPE.JOINT_CAP_ROUND;
+                    }
+                    if (cap === JOINT_TYPE.CAP_BUTT) {
+                        endJoint = JOINT_TYPE.JOINT_CAP_BUTT;
+                    }
+                    if (cap === JOINT_TYPE.CAP_SQUARE) {
+                        endJoint = JOINT_TYPE.JOINT_CAP_SQUARE;
+                    }
                 }
             } else {
                 nextX = points[i + 4];
                 nextY = points[i + 5];
             }
+
+            const dx3 = x1 - prevX;
+            const dy3 = y1 - prevY;
 
             if (joint >= JOINT_TYPE.JOINT_BEVEL && joint <= JOINT_TYPE.JOINT_MITER) {
                 const dx2 = nextX - x2;
@@ -163,11 +183,8 @@ export class PolyBuilder implements IShapeBuilder {
                             case JOINT_TYPE.JOINT_ROUND:
                                 endJoint = JOINT_TYPE.JOINT_CAP_ROUND;
                                 break;
-                            case JOINT_TYPE.JOINT_BEVEL:
-                                endJoint = JOINT_TYPE.JOINT_CAP_BUTT;
-                                break;
                             default:
-                                endJoint = JOINT_TYPE.JOINT_CAP_SQUARE;
+                                endJoint = JOINT_TYPE.JOINT_CAP_BUTT;
                                 break;
                         }
                     }
@@ -175,8 +192,6 @@ export class PolyBuilder implements IShapeBuilder {
 
                 if (joint === JOINT_TYPE.JOINT_MITER) {
                     let jointAdd = 0;
-                    const dx3 = x1 - prevX;
-                    const dy3 = y1 - prevY;
                     if (dx3 * dx + dy3 * dy > -eps) {
                         jointAdd++;
                     }
@@ -186,6 +201,13 @@ export class PolyBuilder implements IShapeBuilder {
                     endJoint += jointAdd;
                 }
             }
+            if (prevCap === 0) {
+                if (Math.abs(dx3 * dy - dy3 * dx) < eps) {
+                    prevCap = JOINT_TYPE.CAP_BUTT2;
+                }
+            }
+            // endJoint += prevCap;
+            prevCap = 0;
 
             verts.push(x1, y1);
             joints.push(endJoint);
@@ -196,12 +218,12 @@ export class PolyBuilder implements IShapeBuilder {
 
         if (closeStroke) {
             verts.push(points[0], points[1]);
-            joints.push(JOINT_TYPE.CAP_BUTT);
+            joints.push(JOINT_TYPE.NONE);
             verts.push(points[2], points[3]);
-            joints.push(JOINT_TYPE.CAP_BUTT);
+            joints.push(JOINT_TYPE.NONE);
         } else {
             verts.push(points[len - 4], points[len - 3]);
-            joints.push(JOINT_TYPE.CAP_BUTT);
+            joints.push(JOINT_TYPE.NONE);
         }
     }
 
@@ -260,7 +282,7 @@ export class PolyBuilder implements IShapeBuilder {
         if (!graphicsData.fillAA) {
             for (let i = 0; i < points.length; i += 2) {
                 verts.push(points[i], points[i + 1]);
-                joints.push(0);
+                joints.push(JOINT_TYPE.FILL);
             }
             return;
         }
@@ -279,11 +301,11 @@ export class PolyBuilder implements IShapeBuilder {
                 }
             }
             joints.push(JOINT_TYPE.FILL_EXPAND + flag);
-            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
-            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
-            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
-            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
-            joints.push(JOINT_TYPE.JOINT_CAP_BUTT);
+            joints.push(JOINT_TYPE.NONE);
+            joints.push(JOINT_TYPE.NONE);
+            joints.push(JOINT_TYPE.NONE);
+            joints.push(JOINT_TYPE.NONE);
+            joints.push(JOINT_TYPE.NONE);
         }
 
         // bisect, re-using pn
@@ -315,8 +337,8 @@ export class PolyBuilder implements IShapeBuilder {
 
         for (let i = 0; i < triangles.length; i += 3) {
             const prev = triangles[i];
-            const ind = triangles[i+1];
-            const next = triangles[i+2];
+            const ind = triangles[i + 1];
+            const next = triangles[i + 2];
             let nx1 = (points[next * 2 + 1] - points[ind * 2 + 1]), ny1 = -(points[next * 2] - points[ind * 2]);
             let nx2 = (points[ind * 2 + 1] - points[prev * 2 + 1]), ny2 = -(points[ind * 2] - points[prev * 2]);
 

@@ -14,9 +14,10 @@ export class SegmentPacker {
         let vertexSize = 0;
         let indexSize = 0;
         for (let i = jointStart; i < jointStart + jointLen; i++) {
-            const joint = joints[i];
+            const prevCap = joints[i] & ~31;
+            const joint = joints[i] & 31;
 
-            if (joint === 0) {
+            if (joint === JOINT_TYPE.FILL) {
                 foundTriangle = true;
                 vertexSize++;
                 continue;
@@ -28,13 +29,11 @@ export class SegmentPacker {
                 continue;
             }
 
-            if (joint >= JOINT_TYPE.CAP_BUTT) {
-                continue;
+            const vs = SegmentPacker.vertsByJoint[joint] + SegmentPacker.vertsByJoint[prevCap];
+            if (vs >= 3) {
+                vertexSize += vs;
+                indexSize += (vs - 2) * 3;
             }
-
-            const vs = SegmentPacker.vertsByJoint[joint];
-            vertexSize += vs;
-            indexSize += (vs - 2) * 3;
         }
         if (foundTriangle) {
             indexSize += triangles;
@@ -80,10 +79,10 @@ export class SegmentPacker {
         let type: number;
         let hasTriangle = false;
 
-        let firstType = -1;
-
         for (let j = jointStart; j < jointStart + jointLen; j++) {
-            const joint = joints[j];
+            const fullJoint = joints[j];
+            const prevCap = joints[j] & ~31;
+            const joint = joints[j] & 31;
 
             if (joint === JOINT_TYPE.FILL) {
                 // just one vertex
@@ -98,7 +97,7 @@ export class SegmentPacker {
                 bufFloat[bufPos + 5] = y1;
                 bufFloat[bufPos + 6] = x1;
                 bufFloat[bufPos + 7] = y1;
-                bufFloat[bufPos + 8] = 0;
+                bufFloat[bufPos + 8] = 16 * joint;
                 bufFloat[bufPos + 9] = 0;
                 bufFloat[bufPos + 10] = 0;
                 bufUint[bufPos + 11] = color;
@@ -124,7 +123,7 @@ export class SegmentPacker {
                     bufFloat[bufPos + 5] = y2;
                     bufFloat[bufPos + 6] = verts[(bis + i) * 2];
                     bufFloat[bufPos + 7] = verts[(bis + i) * 2 + 1];
-                    bufFloat[bufPos + 8] = 16 * joint + i;
+                    bufFloat[bufPos + 8] = 16 * fullJoint + i;
                     bufFloat[bufPos + 9] = 0;
                     bufFloat[bufPos + 10] = 0;
                     bufUint[bufPos + 11] = color;
@@ -139,12 +138,10 @@ export class SegmentPacker {
                 continue;
             }
 
-            if (joint >= JOINT_TYPE.CAP_BUTT) {
+            const vs = SegmentPacker.vertsByJoint[joint];
+            if (vs === 0) {
                 continue;
             }
-
-            const vs = SegmentPacker.vertsByJoint[joint];
-
             x1 = verts[j * 2];
             y1 = verts[j * 2 + 1];
             x2 = verts[j * 2 + 2];
@@ -171,7 +168,7 @@ export class SegmentPacker {
                 bufFloat[bufPos + 5] = y2;
                 bufFloat[bufPos + 6] = nextX;
                 bufFloat[bufPos + 7] = nextY;
-                bufFloat[bufPos + 8] = 16 * type + i;
+                bufFloat[bufPos + 8] = 16 * fullJoint + i;
                 bufFloat[bufPos + 9] = lineStyle;
                 bufFloat[bufPos + 10] = 0;
                 bufUint[bufPos + 11] = color;
@@ -207,7 +204,7 @@ export class SegmentPacker {
 }
 
 const verts = SegmentPacker.vertsByJoint;
-for (let i = 0; i < 48; i++)
+for (let i = 0; i < 256; i++)
     verts.push(0);
 // simple fill
 verts[JOINT_TYPE.FILL] = 1;
@@ -217,29 +214,23 @@ for (let i = 0; i < 8; i++) {
 }
 
 // no caps for now
-verts[JOINT_TYPE.JOINT_CAP_BUTT] = 4;
-verts[JOINT_TYPE.JOINT_CAP_BUTT + 1] = 4;
-verts[JOINT_TYPE.JOINT_CAP_SQUARE + 1] = 4;
-verts[JOINT_TYPE.JOINT_CAP_ROUND] = 4;
-verts[JOINT_TYPE.JOINT_CAP_ROUND + 1] = 4;
-verts[JOINT_TYPE.JOINT_CAP_SQUARE] = 4;
-verts[JOINT_TYPE.JOINT_CAP_SQUARE + 1] = 4;
 verts[JOINT_TYPE.JOINT_BEVEL] = 4 + 3;
 verts[JOINT_TYPE.JOINT_BEVEL + 1] = 4 + 3;
+verts[JOINT_TYPE.JOINT_BEVEL + 2] = 4 + 3;
+verts[JOINT_TYPE.JOINT_BEVEL + 3] = 4 + 3;
 verts[JOINT_TYPE.JOINT_ROUND] = 4 + 5;
 verts[JOINT_TYPE.JOINT_ROUND + 1] = 4 + 5;
+verts[JOINT_TYPE.JOINT_ROUND + 2] = 4 + 5;
+verts[JOINT_TYPE.JOINT_ROUND + 3] = 4 + 5;
 verts[JOINT_TYPE.JOINT_MITER] = 4 + 4;
 verts[JOINT_TYPE.JOINT_MITER + 1] = 4 + 4;
 verts[JOINT_TYPE.JOINT_MITER + 2] = 4;
 verts[JOINT_TYPE.JOINT_MITER + 3] = 4;
+verts[JOINT_TYPE.JOINT_CAP_BUTT] = 4;
+verts[JOINT_TYPE.JOINT_CAP_BUTT + 1] = 4;
+verts[JOINT_TYPE.JOINT_CAP_SQUARE] = 4;
+verts[JOINT_TYPE.JOINT_CAP_SQUARE + 1] = 4;
+verts[JOINT_TYPE.JOINT_CAP_ROUND] = 4 + 4;
+verts[JOINT_TYPE.JOINT_CAP_ROUND + 1] = 4 + 4;
 
-// verts[JOINT_TYPE.JOINT_CAP_ROUND] = 4 + 4;
-// verts[JOINT_TYPE.JOINT_CAP_SQUARE] = 4 + 4;
-// verts[JOINT_TYPE.JOINT_BEVEL] = 4 + 5;
-// verts[JOINT_TYPE.JOINT_ROUND] = 4 + 5;
-// verts[JOINT_TYPE.JOINT_MITER] = 4 + 5;
-// verts[JOINT_TYPE.JOINT_MITER_GOOD] = 4 + 4;
-
-// verts[JOINT_TYPE.CAP_ROUND] = 4;
-// verts[JOINT_TYPE.CAP_SQUARE] = 4;
-verts[JOINT_TYPE.CAP_BUTT] = 0;
+verts[JOINT_TYPE.CAP_ROUND] = 4;
