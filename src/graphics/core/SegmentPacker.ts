@@ -138,7 +138,7 @@ export class SegmentPacker {
                 continue;
             }
 
-            const vs = SegmentPacker.vertsByJoint[joint];
+            const vs = SegmentPacker.vertsByJoint[joint] + SegmentPacker.vertsByJoint[prevCap];
             if (vs === 0) {
                 continue;
             }
@@ -154,8 +154,8 @@ export class SegmentPacker {
                 nextX = verts[j * 2 + 4];
                 nextY = verts[j * 2 + 5];
             } else {
-                nextX = verts[j * 2];
-                nextY = verts[j * 2 + 1];
+                nextX = x1;
+                nextY = y1;
             }
             type = joint;
 

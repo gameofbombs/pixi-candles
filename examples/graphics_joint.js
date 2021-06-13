@@ -36,7 +36,7 @@ function makeFigures(graphics) {
     graphics.clear();
 
     addLine(graphics, 100, 50, 60, PIXI.LINE_CAP.BUTT);
-    addLine(graphics, 200, 50, 60, PIXI.LINE_CAP.SQUARE);
+    addLine(graphics, 200, 50, 60, PIXI.LINE_CAP.ROUND);
 }
 
 // graphics.rotation = Math.PI * 3 / 2 - 0.0001;

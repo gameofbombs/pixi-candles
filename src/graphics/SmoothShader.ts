@@ -83,6 +83,13 @@ void main(void){
 
     float lineWidth = aLineStyle.x * 0.5;
     vec2 pos;
+
+    if (capType == CAP_ROUND) {
+        vertexNum += 4.0;
+        type = JOINT_CAP_ROUND;
+        capType = 0.0;
+    }
+
     if (type == FILL) {
         pos = pointA;
         vDistance = vec4(0.0, -0.5, -0.5, 1.0);
@@ -166,10 +173,18 @@ void main(void){
             inner = 1.0 - inner;
         }
         norm2 *= sign2;
+        float collinear = step(0.0, dot(norm, norm2));
 
         vType = 0.0;
         float dy2 = -0.5;
         float dy3 = -0.5;
+
+        if (abs(D) < 0.01 && collinear < 0.5) {
+            if (type >= ROUND && type < ROUND + 1.5) {
+                type = JOINT_CAP_ROUND;
+            }
+            //TODO: BUTT here too
+        }
 
         if (vertexNum < 3.5) {
             if (abs(D) < 0.01) {
@@ -191,7 +206,7 @@ void main(void){
                     dy2 = dot(pos + base - pointA, back) - extra;
                 }
             }
-            if (type >= JOINT_CAP_BUTT && type < JOINT_CAP_ROUND + 0.5) {
+            if (type >= JOINT_CAP_BUTT && type < JOINT_CAP_SQUARE + 0.5) {
                 vec2 forward = vec2(-norm.y, norm.x);
                 float extra = step(JOINT_CAP_SQUARE, type) * lineWidth;
                 if (vertexNum < 0.5 || vertexNum > 2.5) {
@@ -204,6 +219,27 @@ void main(void){
                     }
                 }
             }
+        } else if (type >= JOINT_CAP_ROUND && type < JOINT_CAP_ROUND + 1.5) {
+            if (inner > 0.5) {
+                dy = -dy;
+                inner = 0.0;
+            }
+            vec2 d2 = abs(dy) * vec2(-norm.y, norm.x);
+            if (vertexNum < 4.5) {
+                dy = -dy;
+                pos = dy * norm;
+            } else if (vertexNum < 5.5) {
+                pos = dy * norm;
+            } else if (vertexNum < 6.5) {
+                pos = dy * norm + d2;
+            } else {
+                dy = -dy;
+                pos = dy * norm + d2;
+            }
+            dy = -0.5;
+            dy2 = pos.x;
+            dy3 = pos.y;
+            vType = 2.0;
         } else if (abs(D) < 0.01) {
             pos = dy * norm;
         } else {
