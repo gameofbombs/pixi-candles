@@ -206,7 +206,7 @@ export class PolyBuilder implements IShapeBuilder {
                     prevCap = JOINT_TYPE.CAP_BUTT2;
                 }
             }
-            // endJoint += prevCap;
+            endJoint += prevCap;
             prevCap = 0;
 
             verts.push(x1, y1);

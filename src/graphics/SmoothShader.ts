@@ -13,7 +13,16 @@ const float FILL = 1.0;
 const float BEVEL = 4.0;
 const float MITER = 8.0;
 const float ROUND = 12.0;
+const float JOINT_CAP_BUTT = 16.0;
+const float JOINT_CAP_SQUARE = 18.0;
+const float JOINT_CAP_ROUND = 20.0;
+
 const float FILL_EXPAND = 24.0;
+
+const float CAP_BUTT = 1.0;
+const float CAP_SQUARE = 2.0;
+const float CAP_ROUND = 3.0;
+const float CAP_BUTT2 = 4.0;
 
 const float MITER_LIMIT = 10.0;
 
@@ -158,20 +167,47 @@ void main(void){
         }
         norm2 *= sign2;
 
+        vType = 0.0;
         float dy2 = -0.5;
         float dy3 = -0.5;
 
-        vType = 0.0;
-        if (abs(D) < 0.01) {
-            pos = dy * norm;
-        } else {
-            if (vertexNum < 3.5) {
+        if (vertexNum < 3.5) {
+            if (abs(D) < 0.01) {
+                pos = dy * norm;
+            } else {
                 if (flag < 0.5 && inner < 0.5) {
                     pos = dy * norm;
                 } else {
                     pos = doBisect(norm, len, norm2, len2, dy, inner);
                 }
-            } else if (type >= ROUND && type < ROUND + 1.5) {
+            }
+            if (capType >= CAP_BUTT && capType < CAP_ROUND) {
+                vec2 back = -vec2(-norm.y, norm.x);
+                float extra = step(CAP_SQUARE, capType) * lineWidth;
+                if (vertexNum < 0.5 || vertexNum > 2.5) {
+                    pos += back * (expand + extra);
+                    dy2 = expand;
+                } else {
+                    dy2 = dot(pos + base - pointA, back) - extra;
+                }
+            }
+            if (type >= JOINT_CAP_BUTT && type < JOINT_CAP_ROUND + 0.5) {
+                vec2 forward = vec2(-norm.y, norm.x);
+                float extra = step(JOINT_CAP_SQUARE, type) * lineWidth;
+                if (vertexNum < 0.5 || vertexNum > 2.5) {
+                    dy3 = dot(pos + base - pointB, forward) - extra;
+                } else {
+                    pos += forward * (expand + extra);
+                    dy3 = expand;
+                    if (capType >= CAP_BUTT) {
+                        dy2 -= expand + extra;
+                    }
+                }
+            }
+        } else if (abs(D) < 0.01) {
+            pos = dy * norm;
+        } else {
+            if (type >= ROUND && type < ROUND + 1.5) {
                 if (inner > 0.5) {
                     dy = -dy;
                     inner = 0.0;
@@ -243,6 +279,7 @@ void main(void){
                 }
             }
         }
+
         pos += base;
         vDistance = vec4(dy, dy2, dy3, lineWidth) * resolution;
     }
