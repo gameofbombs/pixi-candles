@@ -140,7 +140,7 @@ void main(void){
             vDistance.z = -dot(pos - pointB, n3);
         }
         vDistance.xyz *= resolution;
-        vType = 1.0;
+        vType = 2.0;
     } else if (type >= BEVEL) {
         float dy = lineWidth + expand;
         float inner = 0.0;
@@ -239,7 +239,7 @@ void main(void){
             dy = -0.5;
             dy2 = pos.x;
             dy3 = pos.y;
-            vType = 2.0;
+            vType = 3.0;
         } else if (abs(D) < 0.01) {
             pos = dy * norm;
         } else {
@@ -271,13 +271,14 @@ void main(void){
                 dy = pos.x * norm3.y - pos.y * norm3.x - 3.0;
                 dy2 = pos.x;
                 dy3 = pos.y;
-                vType = 2.0;
+                vType = 3.0;
             } else {
                 if (type >= MITER && type < MITER + 3.5) {
                     if (inner > 0.5) {
                         dy = -dy;
                         inner = 0.0;
                     }
+                    float sign = step(0.0, dy) * 2.0 - 1.0;
                     pos = doBisect(norm, len, norm2, len2, dy, 0.0);
                     if (length(pos) > abs(dy) * MITER_LIMIT) {
                         type = BEVEL;
@@ -285,14 +286,16 @@ void main(void){
                         if (vertexNum < 4.5) {
                             dy = -dy;
                             pos = doBisect(norm, len, norm2, len2, dy, 1.0);
-                            dy2 = -abs(dy);
-                            dy3 = -abs(dy);
                         } else if (vertexNum < 5.5) {
                             pos = dy * norm;
                         } else if (vertexNum > 6.5) {
                             pos = dy * norm2;
+                            // dy = ...
                         }
                     }
+                    vType = 1.0;
+                    dy2 = sign * dot(pos, norm) - lineWidth;
+                    dy3 = sign * dot(pos, norm2) - lineWidth;
                 }
                 if (type >= BEVEL && type < BEVEL + 1.5) {
                     if (inner < 0.5) {
@@ -343,6 +346,12 @@ void main(void){
         float bottom = min(vDistance.z + 0.5, 0.0);
         alpha = max(right - left, 0.0) * max(bottom - top, 0.0) * max(far - near, 0.0);
     } else if (vType < 1.5) {
+        float near = vDistance.y - 0.5;
+        float far = min(vDistance.y + 0.5, 0.0);
+        float top = vDistance.z - 0.5;
+        float bottom = min(vDistance.z + 0.5, 0.0);
+        alpha = max(bottom - top, 0.0) * max(far - near, 0.0);
+    } else if (vType < 2.5) {
         alpha *= max(min(vDistance.x + 0.5, 1.0), 0.0);
         alpha *= max(min(vDistance.y + 0.5, 1.0), 0.0);
         alpha *= max(min(vDistance.z + 0.5, 1.0), 0.0);
