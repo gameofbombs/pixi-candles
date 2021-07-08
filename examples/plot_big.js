@@ -5,8 +5,8 @@ const vals =
 
 const app = new PIXI.Application(
     {antialias: false,
-        autoResize: true,
-        resolution: 1,
+        autoDensity: true,
+        resolution: window.devicePixelRatio,
         backgroundColor: 0x525973
         //forceCanvas:true,
          });
@@ -41,3 +41,20 @@ for (let i=0;i<vals.length;i++) {
 }
 
 app.stage.addChild(grad, plot);
+
+const graphics = new PIXI.candles.SmoothGraphics();
+graphics.pivot = { x: 300, y: 300 };
+graphics.position = { x: 300, y: 300 };
+
+// Rectangle
+graphics.lineStyle(0.1, 0, 1);
+
+graphics.drawRect(150, 150, 300, 300);
+graphics.endFill();
+
+app.stage.addChild(graphics);
+
+// graphics.rotation = Math.PI * 3 / 2 - 0.0001;
+app.ticker.add((delta) => {
+    graphics.rotation -= 0.004 * delta;
+});
