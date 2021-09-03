@@ -12,48 +12,41 @@ uniform mat3 projectionMatrix;
 uniform mat3 translationMatrix;
 uniform float resolution;
 uniform vec4 uColor;
+uniform float threshold;
 
-varying vec4 vPixelPos;
-varying vec4 vPixelRect;
+varying vec2 vPos;
+varying vec4 vDistance;
 varying vec4 vColor;
 
 void main(void){
 vec2 p1 = (translationMatrix * vec3(aRect.xy, 1.0)).xy;
 vec2 p2 = (translationMatrix * vec3(aRect.xy + aRect.zw, 1.0)).xy;
+vec2 size = p2 - p1;
 
-vec2 leftTop = p1;
-vec2 rightBottom = p2;
-vec2 sign = aQuad;
-
-// handle negative width/height, or translationMatrix .a .d < 0
-if (p1.x > p2.x) {
-    sign.x = 1.0 - aQuad.x;
-    leftTop.x = p2.x;
-    rightBottom.x = p1.x;
+vec2 tQuad = (aQuad * 2.0 - 1.0) * threshold;
+vec2 tWorld = tQuad;
+if (size.x < 0.0) {
+    tWorld.x = -tWorld.x;
 }
-if (p1.y > p2.y) {
-    sign.y = 1.0 - aQuad.y;
-    leftTop.y = p2.y;
-    rightBottom.y = p1.y;
+if (size.y < 0.0) {
+    tWorld.y = -tWorld.y;
 }
 
-vPixelRect = vec4(leftTop * resolution, rightBottom * resolution);
-
-vec2 pos = (translationMatrix * vec3(aRect.xy + aRect.zw * aQuad, 1.0)).xy;
-pos = floor(pos * resolution + 0.01 + sign * 0.98);
-vPixelPos = vec4(pos - 0.5, pos + 0.5);
-gl_Position = vec4((projectionMatrix * vec3(pos / resolution, 1.0)).xy, 0.0, 1.0);
-
+vec2 localPos = (translationMatrix * vec3(aRect.zw * aQuad, 0.0)).xy;
+vec2 cssPos = (p1 + localPos) + tWorld / resolution;
+vDistance.xy = abs(localPos) * resolution + tQuad;
+vDistance.zw = aRect.zw * resolution;
+gl_Position = vec4((projectionMatrix * vec3(cssPos, 1.0)).xy, 0.0, 1.0);
 vColor = aColor * uColor;
 }`;
 const barFrag = `
-varying vec4 vPixelPos;
-varying vec4 vPixelRect;
+varying vec2 vPos;
+varying vec4 vDistance;
 varying vec4 vColor;
 
 void main(void) {
-vec2 leftTop = max(vPixelPos.xy, vPixelRect.xy);
-vec2 rightBottom = min(vPixelPos.zw, vPixelRect.zw);
+vec2 leftTop = max(vDistance.xy - 0.5, 0.0);
+vec2 rightBottom = min(vDistance.xy + 0.5, vDistance.zw);
 vec2 area = max(rightBottom - leftTop, 0.0);
 float clip = area.x * area.y;
 
@@ -73,7 +66,8 @@ export class BarsShader extends MeshMaterial {
     constructor() {
         super(Texture.WHITE, {
             uniforms: {
-                resolution: 1
+                resolution: 1,
+                threshold: 1,
             },
             program: BarsShader.getProgram()
         });
@@ -257,6 +251,9 @@ export class Bars extends Mesh {
         }
         const rt = renderer.renderTexture.current;
         this.shader.uniforms.resolution = rt ? rt.baseTexture.resolution : renderer.resolution;
+
+        const multisample = rt ? rt.framebuffer.multisample > 1 : renderer.options.antialias;
+        this.shader.uniforms.threshold = multisample ? 2 : 1;
 
         if (useLegacy) {
             // hacky!
