@@ -2,152 +2,374 @@ import {Buffer, Geometry, Program, Texture, Renderer} from '@pixi/core';
 import {CanvasRenderer} from '@pixi/canvas-renderer';
 import {Mesh, MeshMaterial} from '@pixi/mesh';
 import {createIndicesForQuads, hex2string} from '@pixi/utils';
-import {LINE_JOIN} from '@pixi/graphics';
+import {LINE_JOIN, LINE_CAP} from '@pixi/graphics';
 import {TYPES} from '@pixi/constants';
 
-const plotVert = `
-attribute vec2 aPoint0;
+export enum JOINT_TYPE {
+    NONE = 0,
+    FILL = 1,
+    JOINT_BEVEL = 4,
+    JOINT_MITER = 8,
+    JOINT_ROUND = 12,
+    JOINT_CAP_BUTT = 16,
+    JOINT_CAP_SQUARE = 18,
+    JOINT_CAP_ROUND = 20,
+    FILL_EXPAND = 24,
+    CAP_BUTT = 1 << 5,
+    CAP_SQUARE = 2 << 5,
+    CAP_ROUND = 3 << 5,
+    CAP_BUTT2 = 4 << 5,
+}
+
+const plotVert = `precision highp float;
+const float FILL = 1.0;
+const float BEVEL = 4.0;
+const float MITER = 8.0;
+const float ROUND = 12.0;
+const float JOINT_CAP_BUTT = 16.0;
+const float JOINT_CAP_SQUARE = 18.0;
+const float JOINT_CAP_ROUND = 20.0;
+
+const float FILL_EXPAND = 24.0;
+
+const float CAP_BUTT = 1.0;
+const float CAP_SQUARE = 2.0;
+const float CAP_ROUND = 3.0;
+const float CAP_BUTT2 = 4.0;
+
+// === geom ===
+attribute vec2 aPrev;
 attribute vec2 aPoint1;
-attribute vec2 aSides;
-attribute vec2 aQuad;
+attribute vec2 aPoint2;
+attribute vec2 aNext;
+attribute float aVertexJoint;
+attribute float vertexNum;
+
 uniform mat3 projectionMatrix;
 uniform mat3 translationMatrix;
+
+varying vec4 vDistance;
+varying float vType;
+
 uniform float resolution;
-uniform vec2 lineWidth;
+uniform float expand;
 uniform float miterLimit;
+uniform vec2 styleLine;
 
-varying vec3 line;
-varying vec3 lineLeft;
-varying vec3 lineRight;
-varying vec4 vPixelPos;
-
-const float eps = 0.001;
-
-void main(void) {
-float lenX = length(translationMatrix * vec3(1.0, 0.0, 0.0));
-float w = (lineWidth.x * lenX + lineWidth.y) * 0.5 * resolution;
-
-vec2 p0 = (translationMatrix * vec3(aPoint0, 1.0)).xy;
-vec2 p1 = (translationMatrix * vec3(aPoint1, 1.0)).xy;
-
-p0 *= resolution;
-p1 *= resolution;
-
-vec2 k0 = (translationMatrix * vec3(1.0, aSides[0], 0.0)).xy;
-vec2 k1 = (translationMatrix * vec3(1.0, aSides[1], 0.0)).xy;
-
-if (p0.x > p1.x) {
-    // make everything positive
-    vec2 tmp = p0;
-    p0 = p1;
-    p1 = tmp;
-    tmp = k0;
-    k0 = k1;
-    k1 = tmp;
+vec2 doBisect(vec2 norm, float len, vec2 norm2, float len2,
+    float dy, float inner) {
+    vec2 bisect = (norm + norm2) / 2.0;
+    bisect /= dot(norm, bisect);
+    vec2 shift = dy * bisect;
+    if (inner > 0.5) {
+        if (len < len2) {
+            if (abs(dy * (bisect.x * norm.y - bisect.y * norm.x)) > len) {
+                return dy * norm;
+            }
+        } else {
+            if (abs(dy * (bisect.x * norm2.y - bisect.y * norm2.x)) > len2) {
+                return dy * norm;
+            }
+        }
+    }
+    return dy * bisect;
 }
 
-line.x = (p1.y - p0.y) / (p1.x - p0.x);
-line.y = p0.y - line.x * p0.x;
-line.z = w * sqrt(line.x * line.x + 1.0);
+void main(void){
+    vec2 pointA = (translationMatrix * vec3(aPoint1, 1.0)).xy;
+    vec2 pointB = (translationMatrix * vec3(aPoint2, 1.0)).xy;
 
-lineLeft.x = k0.y / k0.x;
-lineLeft.y = p0.y - lineLeft.x * p0.x;
-lineLeft.z = w * sqrt(lineLeft.x * lineLeft.x + 1.0);
+    vec2 xBasis = pointB - pointA;
+    float len = length(xBasis);
+    vec2 forward = xBasis / len;
+    vec2 norm = vec2(forward.y, -forward.x);
 
-lineRight.x = k1.y / k1.x;
-lineRight.y = p1.y - lineRight.x * p1.x;
-lineRight.z = w * sqrt(lineRight.x * lineRight.x + 1.0);
+    float type = aVertexJoint;
 
-// calculating quad
-vec2 pos = vec2(0.0);
+    vec2 avgDiag = (translationMatrix * vec3(1.0, 1.0, 0.0)).xy;
+    float avgScale = sqrt(dot(avgDiag, avgDiag) * 0.5);
 
-vec2 sign = aQuad;
-// strange rounding
-if (abs(line.x) < 10.0 && p1.x - p0.x > 3.0) {
-    sign.x = 0.5;
-}
+    float capType = floor(type / 32.0);
+    type -= capType * 32.0;
 
-float H = 0.0;
-if (aQuad.x < 0.5) {
-    H = min(miterLimit * line.z, max(lineLeft.z, line.z));
-    pos = p0;
-} else {
-    H = min(miterLimit * line.z, max(lineRight.z, line.z));
-    pos = p1;
-}
-H += 2.0;
-pos.y += H * (aQuad.y * 2.0 - 1.0);
+    float lineWidth = styleLine.x;
+    if (lineWidth < 0.0) {
+        lineWidth = -lineWidth;
+    } else {
+        lineWidth = lineWidth * avgScale;
+    }
+    lineWidth *= 0.5;
+    float lineAlignment = 2.0 * styleLine.y - 1.0;
 
-pos.y -= (pos.x - floor(pos.x + eps + sign.x)) * line.x;
-pos = floor(pos + eps + sign * (1.0 - 2.0 * eps));
-vPixelPos = vec4(pos - 0.5, pos + 0.5);
-gl_Position = vec4((projectionMatrix * vec3(pos / resolution, 1.0)).xy, 0.0, 1.0);
+    vec2 pos;
+
+    if (capType == CAP_ROUND) {
+        if (vertexNum < 3.5) {
+            gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+            return;
+        }
+        type = JOINT_CAP_ROUND;
+        capType = 0.0;
+    }
+
+    if (type >= BEVEL) {
+        float dy = lineWidth + expand;
+        float inner = 0.0;
+        if (vertexNum >= 1.5) {
+            dy = -dy;
+            inner = 1.0;
+        }
+
+        vec2 base, next, xBasis2, bisect;
+        float flag = 0.0;
+        float sign2 = 1.0;
+        if (vertexNum < 0.5 || vertexNum > 2.5 && vertexNum < 3.5) {
+            next = (translationMatrix * vec3(aPrev, 1.0)).xy;
+            base = pointA;
+            flag = type - floor(type / 2.0) * 2.0;
+            sign2 = -1.0;
+        } else {
+            next = (translationMatrix * vec3(aNext, 1.0)).xy;
+            base = pointB;
+            if (type >= MITER && type < MITER + 3.5) {
+                flag = step(MITER + 1.5, type);
+                // check miter limit here?
+            }
+        }
+        xBasis2 = next - base;
+        float len2 = length(xBasis2);
+        vec2 norm2 = vec2(xBasis2.y, -xBasis2.x) / len2;
+        float D = norm.x * norm2.y - norm.y * norm2.x;
+        if (D < 0.0) {
+            inner = 1.0 - inner;
+        }
+
+        norm2 *= sign2;
+
+        if (abs(lineAlignment) > 0.01) {
+            float shift = lineWidth * lineAlignment;
+            pointA += norm * shift;
+            pointB += norm * shift;
+            if (abs(D) < 0.01) {
+                base += norm * shift;
+            } else {
+                base += doBisect(norm, len, norm2, len2, shift, 0.0);
+            }
+        }
+
+        float collinear = step(0.0, dot(norm, norm2));
+
+        vType = 0.0;
+        float dy2 = -1000.0;
+        float dy3 = -1000.0;
+
+        if (abs(D) < 0.01 && collinear < 0.5) {
+            if (type >= ROUND && type < ROUND + 1.5) {
+                type = JOINT_CAP_ROUND;
+            }
+            //TODO: BUTT here too
+        }
+
+        if (vertexNum < 3.5) {
+            if (abs(D) < 0.01) {
+                pos = dy * norm;
+            } else {
+                if (flag < 0.5 && inner < 0.5) {
+                    pos = dy * norm;
+                } else {
+                    pos = doBisect(norm, len, norm2, len2, dy, inner);
+                }
+            }
+            if (capType >= CAP_BUTT && capType < CAP_ROUND) {
+                float extra = step(CAP_SQUARE, capType) * lineWidth;
+                vec2 back = -forward;
+                if (vertexNum < 0.5 || vertexNum > 2.5) {
+                    pos += back * (expand + extra);
+                    dy2 = expand;
+                } else {
+                    dy2 = dot(pos + base - pointA, back) - extra;
+                }
+            }
+            if (type >= JOINT_CAP_BUTT && type < JOINT_CAP_SQUARE + 0.5) {
+                float extra = step(JOINT_CAP_SQUARE, type) * lineWidth;
+                if (vertexNum < 0.5 || vertexNum > 2.5) {
+                    dy3 = dot(pos + base - pointB, forward) - extra;
+                } else {
+                    pos += forward * (expand + extra);
+                    dy3 = expand;
+                    if (capType >= CAP_BUTT) {
+                        dy2 -= expand + extra;
+                    }
+                }
+            }
+        } else if (type >= JOINT_CAP_ROUND && type < JOINT_CAP_ROUND + 1.5) {
+            if (inner > 0.5) {
+                dy = -dy;
+                inner = 0.0;
+            }
+            vec2 d2 = abs(dy) * vec2(-norm.y, norm.x);
+            if (vertexNum < 4.5) {
+                dy = -dy;
+                pos = dy * norm;
+            } else if (vertexNum < 5.5) {
+                pos = dy * norm;
+            } else if (vertexNum < 6.5) {
+                pos = dy * norm + d2;
+            } else {
+                dy = -dy;
+                pos = dy * norm + d2;
+            }
+            dy = -0.5;
+            dy2 = pos.x;
+            dy3 = pos.y;
+            vType = 3.0;
+        } else if (abs(D) < 0.01) {
+            pos = dy * norm;
+        } else {
+            if (type >= ROUND && type < ROUND + 1.5) {
+                if (inner > 0.5) {
+                    dy = -dy;
+                    inner = 0.0;
+                }
+                if (vertexNum < 4.5) {
+                    pos = doBisect(norm, len, norm2, len2, -dy, 1.0);
+                } else if (vertexNum < 5.5) {
+                    pos = dy * norm;
+                } else if (vertexNum > 7.5) {
+                    pos = dy * norm2;
+                } else {
+                    pos = doBisect(norm, len, norm2, len2, dy, 0.0);
+                    float d2 = abs(dy);
+                    if (length(pos) > abs(dy) * 1.5) {
+                        if (vertexNum < 6.5) {
+                            pos.x = dy * norm.x - d2 * norm.y;
+                            pos.y = dy * norm.y + d2 * norm.x;
+                        } else {
+                            pos.x = dy * norm2.x + d2 * norm2.y;
+                            pos.y = dy * norm2.y - d2 * norm2.x;
+                        }
+                    }
+                }
+                vec2 norm3 = normalize(norm - norm2);
+                dy = pos.x * norm3.y - pos.y * norm3.x - 1.0;
+                dy2 = pos.x;
+                dy3 = pos.y;
+                vType = 3.0;
+            } else {
+                float hit = 0.0;
+                if (type >= MITER && type < MITER + 3.5) {
+                    if (inner > 0.5) {
+                        dy = -dy;
+                        inner = 0.0;
+                    }
+                    float sign = step(0.0, dy) * 2.0 - 1.0;
+                    pos = doBisect(norm, len, norm2, len2, dy, 0.0);
+                    if (length(pos) > abs(dy) * miterLimit) {
+                        type = BEVEL;
+                    } else {
+                        if (vertexNum < 4.5) {
+                            dy = -dy;
+                            pos = doBisect(norm, len, norm2, len2, dy, 1.0);
+                        } else if (vertexNum < 5.5) {
+                            pos = dy * norm;
+                        } else if (vertexNum > 6.5) {
+                            pos = dy * norm2;
+                            // dy = ...
+                        }
+                        vType = 1.0;
+                        dy = -sign * dot(pos, norm);
+                        dy2 = -sign * dot(pos, norm2);
+                        hit = 1.0;
+                    }
+                }
+                if (type >= BEVEL && type < BEVEL + 1.5) {
+                    if (inner > 0.5) {
+                        dy = -dy;
+                        inner = 0.0;
+                    }
+                    float d2 = abs(dy);
+                    vec2 pos3 = vec2(dy * norm.x - d2 * norm.y, dy * norm.y + d2 * norm.x);
+                    vec2 pos4 = vec2(dy * norm2.x + d2 * norm2.y, dy * norm2.y - d2 * norm2.x);
+                    if (vertexNum < 4.5) {
+                        pos = doBisect(norm, len, norm2, len2, -dy, 1.0);
+                    } else if (vertexNum < 5.5) {
+                        pos = dy * norm;
+                    } else if (vertexNum > 7.5) {
+                        pos = dy * norm2;
+                    } else {
+                        if (vertexNum < 6.5) {
+                            pos = pos3;
+                        } else {
+                            pos = pos4;
+                        }
+                    }
+                    vec2 norm3 = normalize(norm + norm2);
+                    float sign = step(0.0, dy) * 2.0 - 1.0;
+
+                    dy = -sign * dot(pos, norm);
+                    dy2 = -sign * dot(pos, norm2);
+                    dy3 = (-sign * dot(pos, norm3)) + lineWidth;
+                    vType = 4.0;
+                    hit = 1.0;
+                }
+                if (hit < 0.5) {
+                    gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+                    return;
+                }
+            }
+        }
+
+        pos += base;
+        vDistance = vec4(dy, dy2, dy3, lineWidth) * resolution;
+    }
+
+    gl_Position = vec4((projectionMatrix * vec3(pos, 1.0)).xy, 0.0, 1.0);
 }`;
+
 const plotFrag = `
-varying vec3 line;
-varying vec3 lineLeft;
-varying vec3 lineRight;
-varying vec4 vPixelPos;
+varying vec4 vDistance;
+varying float vType;
 uniform vec4 uColor;
-uniform vec4 uGeomColor;
 
-float cut(float x, float y1, float y2) {
-vec2 range = vec2(dot(line, vec3(x, 1.0, -1.0)), dot(line, vec3(x, 1.0, 1.0)));
-if (line.x + lineLeft.x > 0.0) {
-    float v = dot(lineLeft, vec3(x, 1.0, -1.0));
-    if (line.x < lineLeft.x) {
-        range.x = min(range.x, v);
+void main(void){
+    float alpha = 1.0;
+    float lineWidth = vDistance.w;
+    if (vType < 0.5) {
+        float left = max(vDistance.x - 0.5, -vDistance.w);
+        float right = min(vDistance.x + 0.5, vDistance.w);
+        float near = vDistance.y - 0.5;
+        float far = min(vDistance.y + 0.5, 0.0);
+        float top = vDistance.z - 0.5;
+        float bottom = min(vDistance.z + 0.5, 0.0);
+        alpha = max(right - left, 0.0) * max(bottom - top, 0.0) * max(far - near, 0.0);
+    } else if (vType < 1.5) {
+        float a1 = clamp(vDistance.x + 0.5 - lineWidth, 0.0, 1.0);
+        float a2 = clamp(vDistance.x + 0.5 + lineWidth, 0.0, 1.0);
+        float b1 = clamp(vDistance.y + 0.5 - lineWidth, 0.0, 1.0);
+        float b2 = clamp(vDistance.y + 0.5 + lineWidth, 0.0, 1.0);
+        alpha = a2 * b2 - a1 * b1;
+    } else if (vType < 2.5) {
+        alpha *= max(min(vDistance.x + 0.5, 1.0), 0.0);
+        alpha *= max(min(vDistance.y + 0.5, 1.0), 0.0);
+        alpha *= max(min(vDistance.z + 0.5, 1.0), 0.0);
+    } else if (vType < 3.5) {
+        float dist2 = sqrt(dot(vDistance.yz, vDistance.yz));
+        float rad = vDistance.w;
+        float left = max(dist2 - 0.5, -rad);
+        float right = min(dist2 + 0.5, rad);
+        // TODO: something has to be done about artifact at vDistance.x far side
+        alpha = 1.0 - step(vDistance.x, 0.0) * (1.0 - max(right - left, 0.0));
     } else {
-        range.x = max(range.x, v);
+        float a1 = clamp(vDistance.x + 0.5 - lineWidth, 0.0, 1.0);
+        float a2 = clamp(vDistance.x + 0.5 + lineWidth, 0.0, 1.0);
+        float b1 = clamp(vDistance.y + 0.5 - lineWidth, 0.0, 1.0);
+        float b2 = clamp(vDistance.y + 0.5 + lineWidth, 0.0, 1.0);
+        alpha = a2 * b2 - a1 * b1;
+        alpha *= max(min(vDistance.z + 0.5, 1.0), 0.0);
     }
-} else {
-    float v = dot(lineLeft, vec3(x, 1.0, 1.0));
-    if (line.x < lineLeft.x) {
-        range.y = min(range.y, v);
-    } else {
-        range.y = max(range.y, v);
-    }
+    gl_FragColor = uColor * alpha;
 }
-
-if (line.x + lineRight.x < 0.0) {
-    float v = dot(lineRight, vec3(x, 1.0, -1.0));
-    if (line.x > lineRight.x) {
-        range.x = min(range.x, v);
-    } else {
-        range.x = max(range.x, v);
-    }
-} else {
-    float v = dot(lineRight, vec3(x, 1.0, 1.0));
-    if (line.x > lineRight.x) {
-        range.y = min(range.y, v);
-    } else {
-        range.y = max(range.y, v);
-    }
-}
-
-range.x = max(range.x, y1);
-range.y = min(range.y, y2);
-return max(range.y - range.x, 0.0);
-}
-
-const float N = 8.0;
-const float step = 1.0 / N;
-const float div = 1.0 / (N + 1.0);
-
-void main(void) {
-// float cutLeft = cut(vPixelPos.x, vPixelPos.y, vPixelPos.w);
-// float cutRight = cut(vPixelPos.z, vPixelPos.y, vPixelPos.w);
-// float clip = (cutLeft + cutRight) / 2.0;
-
-float d = (vPixelPos.z - vPixelPos.x);
-float clip = 0.0;
-for (float i = 0.0; i < N; i += 1.) {
-    clip += cut(vPixelPos.x + d * i * step, vPixelPos.y, vPixelPos.w);
-}
-clip *= div;
-
-gl_FragColor = uColor * clip + uGeomColor * (1.0 - clip);
-}`;
+`;
 
 export class PlotShader extends MeshMaterial {
     static _prog: Program = null;
@@ -163,13 +385,24 @@ export class PlotShader extends MeshMaterial {
         super(Texture.WHITE, {
             uniforms: {
                 resolution: 1,
-                lineWidth: new Float32Array([1, 0]),
-                miterLimit: 5,
-                uGeomColor: new Float32Array([0, 0, 0, 0]),
+                expand: 1,
+                styleLine: new Float32Array([1.0, 0.5]),
+                miterLimit: 5.0,
             },
             program: PlotShader.getProgram()
         });
     }
+}
+
+export function multIndex(indices: Uint32Array, vertCount: number, instanceCount: number, support32 = true) {
+    const size = indices.length;
+    const ind = support32 ? new Uint32Array(size * instanceCount) : new Uint16Array(size * instanceCount);
+    for (let i = 0; i < instanceCount; i++) {
+        for (let j = 0; j < size; j++) {
+            ind[i * size + j] = indices[j] + vertCount * i;
+        }
+    }
+    return ind;
 }
 
 export class PlotGeometry extends Geometry {
@@ -179,7 +412,9 @@ export class PlotGeometry extends Geometry {
         this.reset();
     }
 
-    jointStyle = LINE_JOIN.BEVEL;
+    joinStyle = LINE_JOIN.MITER;
+    capStyle = LINE_CAP.SQUARE;
+
     lastLen = 0;
     lastPointNum = 0;
     lastPointData = 0;
@@ -190,24 +425,28 @@ export class PlotGeometry extends Geometry {
     _buffer: Buffer = null;
     _quad: Buffer = null;
     _indexBuffer: Buffer = null;
+    _vertexNums: Buffer = null;
+    support32 = false;
 
     initGeom(_static: boolean) {
         this._buffer = new Buffer(new Float32Array(0), _static, false);
 
-        this._quad = new Buffer(new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), true, false);
+        this._vertexNums = new Buffer(new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8]), true, false);
 
-        this._indexBuffer = new Buffer(new Uint16Array([0, 1, 2, 0, 2, 3]), true, true);
+        this._indexBuffer = new Buffer(new Uint16Array([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7, 4, 7, 8]), true, true);
 
-        this.addAttribute('aPoint0', this._buffer, 2, false, TYPES.FLOAT, undefined, undefined, true)
-            .addAttribute('aPoint1', this._buffer, 2, false, TYPES.FLOAT, undefined, undefined, true)
-            .addAttribute('aSides', this._buffer, 2, false, TYPES.FLOAT, undefined, undefined, true)
-            .addAttribute('aQuad', this._quad, 2, false, TYPES.FLOAT)
+        this.addAttribute('aPrev', this._buffer, 2, false, TYPES.FLOAT, 3 * 4, 0 * 4, true)
+            .addAttribute('aPoint1', this._buffer, 2, false, TYPES.FLOAT, 3 * 4, 3 * 4, true)
+            .addAttribute('aPoint2', this._buffer, 2, false, TYPES.FLOAT, 3 * 4, 6 * 4, true)
+            .addAttribute('aNext', this._buffer, 2, false, TYPES.FLOAT, 3 * 4, 9 * 4, true)
+            .addAttribute('aVertexJoint', this._buffer, 1, false, TYPES.FLOAT, 3 * 4, 5 * 4, true)
+            .addAttribute('vertexNum', this._vertexNums, 1, false, TYPES.FLOAT)
             .addIndex(this._indexBuffer);
     }
 
     stridePoints = 2;
-    strideFloats = 6;
-    strideBytes = 24;
+    strideFloats = 3;
+    strideBytes = 3 * 4;
 
     moveTo(x: number, y: number) {
         const {points} = this;
@@ -252,7 +491,7 @@ export class PlotGeometry extends Geometry {
         const {points, strideBytes, stridePoints} = this;
         this.lastPointNum = 0;
         this.lastPointData = 0;
-        const arrayLen = Math.max(0, points.length / stridePoints - 1);
+        const arrayLen = Math.max(0, points.length / stridePoints + 3);
         const arrBuf = new ArrayBuffer(strideBytes * arrayLen);
         this.lastLen = points.length;
         this._floatView = new Float32Array(arrBuf);
@@ -275,53 +514,58 @@ export class PlotGeometry extends Geometry {
             return;
         }
 
-        const {_floatView, _u32View} = this;
-        const bevel = this.jointStyle === LINE_JOIN.BEVEL;
-        this.lastPointData = Math.min(this.lastPointData, this.lastPointNum);
-        let j = Math.round(this.lastPointNum * strideFloats / stridePoints); //actually that's int division
-        for (let i = this.lastPointNum; i < points.length - stridePoints; i += stridePoints) {
-            const prev = i - stridePoints;
-            const next = i + stridePoints;
-            const next2 = i + stridePoints * 2;
+        const jointType = this.jointType();
+        const capType = this.capType();
+        let endJoint = capType;
+        if (capType === JOINT_TYPE.CAP_ROUND) {
+            endJoint = JOINT_TYPE.JOINT_CAP_ROUND;
+        }
+        if (capType === JOINT_TYPE.CAP_BUTT) {
+            endJoint = JOINT_TYPE.JOINT_CAP_BUTT;
+        }
+        if (capType === JOINT_TYPE.CAP_SQUARE) {
+            endJoint = JOINT_TYPE.JOINT_CAP_SQUARE;
+        }
 
+        const {_floatView, _u32View} = this;
+
+        if (this.lastPointNum > 0) {
+            this.lastPointNum--;
+        }
+        if (this.lastPointNum > 0) {
+            this.lastPointNum--;
+        }
+
+        this.lastPointData = Math.min(this.lastPointData, this.lastPointNum);
+        let j = (Math.round(this.lastPointNum / stridePoints) + 2) * strideFloats; //actually that's int division
+
+        for (let i = this.lastPointNum; i < points.length; i += stridePoints) {
             _floatView[j++] = points[i];
             _floatView[j++] = points[i + 1];
-            _floatView[j++] = points[next];
-            _floatView[j++] = points[next + 1];
-
-            const dx = points[next] - points[i];
-            const dy = points[next + 1] - points[i + 1];
-            const D = Math.sqrt(dx * dx + dy * dy);
-
-            const k = dy / dx;
-            if (prev >= 0) {
-                const dx2 = points[i] - points[prev];
-                const dy2 = points[i + 1] - points[prev + 1];
-                if (bevel) {
-                    const D2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-                    _floatView[j++] = (dy2 * D + dy * D2) / (dx2 * D + dx * D2);
-                } else {
-                    _floatView[j++] = dy2 / dx2;
-                }
-            } else {
-                _floatView[j++] = k;
+            _floatView[j] = jointType;
+            if (i == 0 && capType !== JOINT_TYPE.CAP_ROUND) {
+                _floatView[j] += capType;
             }
-
-            if (next2 < points.length) {
-                const dx2 = points[next2] - points[next];
-                const dy2 = points[next2 + 1] - points[next + 1];
-                if (bevel) {
-                    const D2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-                    _floatView[j++] = (dy2 * D + dy * D2) / (dx2 * D + dx * D2);
-                } else {
-                    _floatView[j++] = dy2 / dx2;
-                }
-            } else {
-                _floatView[j++] = k;
+            if (i + stridePoints * 2 >= points.length) {
+                _floatView[j] += endJoint - jointType;
+            } else if (i + stridePoints >= points.length) {
+                _floatView[j] = 0;
             }
+            j++;
         }
+        _floatView[j++] = points[points.length - 4];
+        _floatView[j++] = points[points.length - 2];
+        _floatView[j++] = 0;
+        _floatView[0] = points[0];
+        _floatView[1] = points[1];
+        _floatView[2] = 0;
+        _floatView[3] = points[2];
+        _floatView[4] = points[3];
+        _floatView[5] = capType === JOINT_TYPE.CAP_ROUND ? capType : 0;
+
+        //TODO: update from first modified float
         this._buffer.update();
-        this.instanceCount = Math.round(points.length / stridePoints - 1);
+        this.instanceCount = Math.round(points.length / stridePoints);
 
         this.lastPointNum = this.lastLen;
         this.lastPointData = this.lastLen; // TODO: partial upload
@@ -334,51 +578,119 @@ export class PlotGeometry extends Geometry {
     legacyGeom: Geometry = null;
     legacyBuffer: Buffer = null;
 
-    initLegacy() {
+    initLegacy(support32: boolean) {
         if (this.legacyGeom) {
             return;
         }
+        const ind = [0, 1, 2, 0, 2, 3];
+        this.support32 = support32;
         this.legacyGeom = new Geometry();
         this.legacyBuffer = new Buffer(new Float32Array(0), false, false);
-        this.legacyGeom.addAttribute('aPoint0', this.legacyBuffer, 2, false, TYPES.FLOAT)
+        this.legacyGeom.addAttribute('aPrev', this.legacyBuffer, 2, false, TYPES.FLOAT)
             .addAttribute('aPoint1', this.legacyBuffer, 2, false, TYPES.FLOAT)
-            .addAttribute('aSides', this.legacyBuffer, 2, false, TYPES.FLOAT)
-            .addAttribute('aQuad', this.legacyBuffer, 2, false, TYPES.FLOAT)
-            .addIndex(new Buffer(new Uint16Array([0, 1, 2, 0, 2, 3]), false, true));
+            .addAttribute('aPoint2', this.legacyBuffer, 2, false, TYPES.FLOAT)
+            .addAttribute('aNext', this.legacyBuffer, 2, false, TYPES.FLOAT)
+            .addAttribute('aVertexJoint', this.legacyBuffer, 1, false, TYPES.FLOAT)
+            .addAttribute('vertexNum', this.legacyBuffer, 1, false, TYPES.FLOAT)
+            .addIndex(new Buffer(support32? new Uint32Array(ind): new Uint16Array(ind), false, true));
     }
 
     updateLegacy() {
         const {legacyBuffer, _floatView, _u32View, strideFloats} = this;
-        const strideLegacy = 8;
-        const quadsCount = this._floatView.length / strideFloats;
-        const legacyLen = quadsCount * strideLegacy * 4;
+        const strideLegacy = 10;
+        const vcount = 9;
+        const instanceCount = (this._floatView.length / strideFloats - 3);
+        const legacyLen = instanceCount * strideLegacy * vcount;
         if ((legacyBuffer.data as Float32Array).length !== legacyLen) {
             legacyBuffer.data = new Float32Array(legacyLen);
-            this.legacyGeom.getIndex().update(createIndicesForQuads(quadsCount));
+            this.legacyGeom.getIndex().update(multIndex(this._indexBuffer.data as any, vcount, instanceCount, this.support32));
         }
         const floats: Float32Array = legacyBuffer.data as any;
-        const quad: Float32Array = this._quad.data as any;
-
-        for (let i = 0, j = 0; i < this._floatView.length;) {
-            for (let k = 0; k < 4; k++) {
+        for (let i = 0, j = 0; j < legacyLen; i += strideFloats) {
+            for (let k = 0; k < vcount; k++) {
                 floats[j++] = _floatView[i];
                 floats[j++] = _floatView[i + 1];
-                floats[j++] = _floatView[i + 2];
                 floats[j++] = _floatView[i + 3];
                 floats[j++] = _floatView[i + 4];
+                floats[j++] = _floatView[i + 6];
+                floats[j++] = _floatView[i + 7];
+                floats[j++] = _floatView[i + 9];
+                floats[j++] = _floatView[i + 10];
                 floats[j++] = _floatView[i + 5];
-                floats[j++] = quad[k * 2]
-                floats[j++] = quad[k * 2 + 1];
+                floats[j++] = k;
             }
-            i += strideFloats;
         }
+    }
+
+    /**
+     * copied from graphics-smooth
+     */
+    public capType() {
+        let cap: number;
+
+        switch (this.capStyle) {
+            case LINE_CAP.SQUARE:
+                cap = JOINT_TYPE.CAP_SQUARE;
+                break;
+            case LINE_CAP.ROUND:
+                cap = JOINT_TYPE.CAP_ROUND;
+                break;
+            default:
+                cap = JOINT_TYPE.CAP_BUTT;
+                break;
+        }
+
+        return cap;
+    }
+
+    /**
+     * copied from graphics-smooth
+     */
+    public goodJointType() {
+        let joint: number;
+
+        switch (this.joinStyle) {
+            case LINE_JOIN.BEVEL:
+                joint = JOINT_TYPE.JOINT_BEVEL;
+                break;
+            case LINE_JOIN.ROUND:
+                joint = JOINT_TYPE.JOINT_ROUND;
+                break;
+            default:
+                joint = JOINT_TYPE.JOINT_MITER + 3;
+                break;
+        }
+
+        return joint;
+    }
+
+    /**
+     * copied from graphics-smooth
+     */
+    public jointType() {
+        let joint: number;
+
+        switch (this.joinStyle) {
+            case LINE_JOIN.BEVEL:
+                joint = JOINT_TYPE.JOINT_BEVEL;
+                break;
+            case LINE_JOIN.ROUND:
+                joint = JOINT_TYPE.JOINT_ROUND;
+                break;
+            default:
+                joint = JOINT_TYPE.JOINT_MITER;
+                break;
+        }
+
+        return joint;
     }
 }
 
 export interface PlotOptions {
     lineWidth?: number;
     nativeLineWidth?: number;
-    jointStyle?: LINE_JOIN;
+    joinStyle?: LINE_JOIN;
+    capStyle?: LINE_CAP;
 }
 
 export class Plot extends Mesh {
@@ -386,14 +698,17 @@ export class Plot extends Mesh {
         const geometry = new PlotGeometry();
         const shader = new PlotShader();
         if (options) {
-            if (options.jointStyle !== undefined) {
-                geometry.jointStyle = options.jointStyle;
-            }
             if (options.lineWidth !== undefined) {
-                shader.uniforms.lineWidth[0] = options.lineWidth;
+                shader.uniforms.styleLine[0] = options.lineWidth;
             }
             if (options.nativeLineWidth !== undefined) {
-                shader.uniforms.lineWidth[1] = options.nativeLineWidth;
+                shader.uniforms.styleLine[0] = options.nativeLineWidth;
+            }
+            if (options.joinStyle !== undefined) {
+                geometry.joinStyle = options.joinStyle;
+            }
+            if (options.capStyle !== undefined) {
+                geometry.capStyle = options.capStyle;
             }
         }
 
@@ -415,17 +730,20 @@ export class Plot extends Mesh {
         geometry.lineBy(x, y);
     }
 
-    lineStyle(width?: number, nativeWidth?: number, jointStyle?: LINE_JOIN) {
+    lineStyle(width?: number, nativeWidth?: number, joinStyle?: LINE_JOIN, capStyle?: LINE_CAP) {
         const geometry = this.geometry as PlotGeometry;
         if (width !== undefined) {
 
-            this.shader.uniforms.lineWidth[0] = width;
+            this.shader.uniforms.styleLine[0] = width;
         }
         if (nativeWidth !== undefined) {
-            this.shader.uniforms.lineWidth[1] = nativeWidth;
+            this.shader.uniforms.styleLine[0] = -nativeWidth;
         }
-        if (jointStyle !== undefined) {
-            geometry.jointStyle = jointStyle;
+        if (joinStyle !== undefined) {
+            geometry.joinStyle = joinStyle;
+        }
+        if (capStyle !== undefined) {
+            geometry.capStyle = capStyle;
         }
         geometry.invalidate();
     }
@@ -437,16 +755,22 @@ export class Plot extends Mesh {
     _renderDefault(renderer: Renderer): void {
         const geometry = this.geometry as PlotGeometry;
 
+        if (geometry.points.length < 4) {
+            return;
+        }
+
         const useLegacy = !renderer.geometry.hasInstance;
         if (useLegacy) {
-            geometry.initLegacy();
+            geometry.initLegacy(renderer.context.supports.uint32Indices);
         }
         geometry.updateBuffer();
         if (geometry.instanceCount === 0) {
             return;
         }
         const rt = renderer.renderTexture.current;
-        this.shader.uniforms.resolution = rt ? rt.baseTexture.resolution : renderer.resolution;
+        const multisample = rt ? rt.framebuffer.multisample > 1 : renderer.options.antialias;
+        const resolution = this.shader.uniforms.resolution = (rt ? rt.baseTexture.resolution : renderer.resolution);
+        this.shader.uniforms.expand = (multisample ? 2 : 1) / resolution;
 
         if (useLegacy) {
             // hacky!
@@ -469,7 +793,7 @@ export class Plot extends Mesh {
         renderer.setContextTransform(wt);
 
         const scale = Math.sqrt(wt.a * wt.a + wt.b * wt.b);
-        context.lineWidth = this.shader.uniforms.lineWidth[0] + this.shader.uniforms.lineWidth[1] / scale;
+        context.lineWidth = this.shader.uniforms.styleLine[0] + this.shader.uniforms.styleLine[1] / scale;
 
         context.strokeStyle = hex2string(this.tint);
         context.globalAlpha = this.worldAlpha;
