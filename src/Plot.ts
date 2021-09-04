@@ -326,7 +326,7 @@ void main(void){
     gl_Position = vec4((projectionMatrix * vec3(pos, 1.0)).xy, 0.0, 1.0);
 }`;
 
-const plotFrag = `
+const plotFrag = `precision highp float;
 varying vec4 vDistance;
 varying float vType;
 uniform vec4 uColor;
