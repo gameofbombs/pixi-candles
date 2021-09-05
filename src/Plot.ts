@@ -559,7 +559,7 @@ export class PlotGeometry extends Geometry {
             j++;
         }
         _floatView[j++] = points[points.length - 4];
-        _floatView[j++] = points[points.length - 2];
+        _floatView[j++] = points[points.length - 3];
         _floatView[j++] = 0;
         _floatView[0] = points[0];
         _floatView[1] = points[1];
