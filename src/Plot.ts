@@ -209,7 +209,7 @@ void main(void){
                 dy = -dy;
                 inner = 0.0;
             }
-            vec2 d2 = abs(dy) * vec2(-norm.y, norm.x);
+            vec2 d2 = abs(dy) * forward;
             if (vertexNum < 4.5) {
                 dy = -dy;
                 pos = dy * norm;
@@ -217,18 +217,16 @@ void main(void){
                 pos = dy * norm;
             } else if (vertexNum < 6.5) {
                 pos = dy * norm + d2;
+                vArc.x = abs(dy);
             } else {
                 dy = -dy;
                 pos = dy * norm + d2;
+                vArc.x = abs(dy);
             }
-            dy = -0.5;
-
-            float sign = step(0.0, dy) * 2.0 - 1.0;
-            vArc.x = sign * dot(pos, forward);
-            vArc.y = dot(pos, norm);
+            dy2 = 0.0;
+            vArc.y = dy;
             vArc.z = 0.0;
-
-            dy = -sign * dot(pos, norm);
+            vArc.w = lineWidth;
             vType = 3.0;
         } else if (abs(D) < 0.01) {
             pos = dy * norm;
@@ -381,7 +379,7 @@ void main(void){
         float alpha_miter = a2 * b2 - a1 * b1;
 
         float alpha_left = max(min(vDistance.z + 0.5, 1.0), 0.0); // vDistance.z is vArc.z - vArc.x
-        float alpha_circle = 0.0; // do the circle math, without left part
+        float alpha_circle = max(min(vArc.w - length(vArc.xy) + 0.5, 1.0), 0.0);; // do the circle math, without left part
 
         alpha = min(alpha_miter, alpha_circle + alpha_left);
     } else {

@@ -51,6 +51,8 @@ function makeFigures(container) {
     addLine(container, 3, 200, 50, 60, PIXI.LINE_CAP.ROUND);
 }
 
+app.stage.alpha = 0.7;
+
 // graphics.rotation = Math.PI * 3 / 2 - 0.0001;
 app.ticker.add((delta) => {
     phase -= 0.008 * delta;
