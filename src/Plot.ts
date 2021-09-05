@@ -2,7 +2,7 @@ import {Buffer, Geometry, Program, Texture, Renderer} from '@pixi/core';
 import {CanvasRenderer} from '@pixi/canvas-renderer';
 import {Mesh, MeshMaterial} from '@pixi/mesh';
 import {createIndicesForQuads, hex2string} from '@pixi/utils';
-import {LINE_JOIN, LINE_CAP} from '@pixi/graphics';
+import {LINE_JOIN, LINE_CAP, ILineStyleOptions} from '@pixi/graphics';
 import {TYPES} from '@pixi/constants';
 
 export enum JOINT_TYPE {
@@ -49,6 +49,7 @@ uniform mat3 projectionMatrix;
 uniform mat3 translationMatrix;
 
 varying vec4 vDistance;
+varying vec4 vArc;
 varying float vType;
 
 uniform float resolution;
@@ -91,6 +92,7 @@ void main(void){
 
     float capType = floor(type / 32.0);
     type -= capType * 32.0;
+    vArc = vec4(0.0);
 
     float lineWidth = styleLine.x;
     if (lineWidth < 0.0) {
@@ -220,8 +222,13 @@ void main(void){
                 pos = dy * norm + d2;
             }
             dy = -0.5;
-            dy2 = pos.x;
-            dy3 = pos.y;
+
+            float sign = step(0.0, dy) * 2.0 - 1.0;
+            vArc.x = sign * dot(pos, forward);
+            vArc.y = dot(pos, norm);
+            vArc.z = 0.0;
+
+            dy = -sign * dot(pos, norm);
             vType = 3.0;
         } else if (abs(D) < 0.01) {
             pos = dy * norm;
@@ -250,10 +257,17 @@ void main(void){
                         }
                     }
                 }
-                vec2 norm3 = normalize(norm - norm2);
-                dy = pos.x * norm3.y - pos.y * norm3.x - 1.0;
-                dy2 = pos.x;
-                dy3 = pos.y;
+                vec2 norm3 = normalize(norm + norm2);
+
+                float sign = step(0.0, dy) * 2.0 - 1.0;
+                vArc.x = sign * dot(pos, norm3);
+                vArc.y = pos.x * norm3.y - pos.y * norm3.x;
+                vArc.z = dot(norm, norm3) * lineWidth;
+                vArc.w = lineWidth;
+
+                dy = -sign * dot(pos, norm);
+                dy2 = -sign * dot(pos, norm2);
+                dy3 = vArc.z - vArc.x;
                 vType = 3.0;
             } else {
                 float hit = 0.0;
@@ -326,6 +340,7 @@ void main(void){
 
         pos += base;
         vDistance = vec4(dy, dy2, dy3, lineWidth) * resolution;
+        vArc = vArc * resolution;
     }
 
     gl_Position = vec4((projectionMatrix * vec3(pos, 1.0)).xy, 0.0, 1.0);
@@ -333,6 +348,7 @@ void main(void){
 
 const plotFrag = `precision highp float;
 varying vec4 vDistance;
+varying vec4 vArc;
 varying float vType;
 uniform vec4 uColor;
 
@@ -358,12 +374,16 @@ void main(void){
         alpha *= max(min(vDistance.y + 0.5, 1.0), 0.0);
         alpha *= max(min(vDistance.z + 0.5, 1.0), 0.0);
     } else if (vType < 3.5) {
-        float dist2 = sqrt(dot(vDistance.yz, vDistance.yz));
-        float rad = vDistance.w;
-        float left = max(dist2 - 0.5, -rad);
-        float right = min(dist2 + 0.5, rad);
-        // TODO: something has to be done about artifact at vDistance.x far side
-        alpha = 1.0 - step(vDistance.x, 0.0) * (1.0 - max(right - left, 0.0));
+        float a1 = clamp(vDistance.x + 0.5 - lineWidth, 0.0, 1.0);
+        float a2 = clamp(vDistance.x + 0.5 + lineWidth, 0.0, 1.0);
+        float b1 = clamp(vDistance.y + 0.5 - lineWidth, 0.0, 1.0);
+        float b2 = clamp(vDistance.y + 0.5 + lineWidth, 0.0, 1.0);
+        float alpha_miter = a2 * b2 - a1 * b1;
+
+        float alpha_left = max(min(vDistance.z + 0.5, 1.0), 0.0); // vDistance.z is vArc.z - vArc.x
+        float alpha_circle = 0.0; // do the circle math, without left part
+
+        alpha = min(alpha_miter, alpha_circle + alpha_left);
     } else {
         float a1 = clamp(vDistance.x + 0.5 - lineWidth, 0.0, 1.0);
         float a2 = clamp(vDistance.x + 0.5 + lineWidth, 0.0, 1.0);
@@ -736,9 +756,14 @@ export class Plot extends Mesh {
     }
 
     lineStyle(width?: number, nativeWidth?: number, joinStyle?: LINE_JOIN, capStyle?: LINE_CAP) {
+        const param = width as any;
+        if (param instanceof Object) {
+            this.gLineStyle(param);
+            return;
+        }
+
         const geometry = this.geometry as PlotGeometry;
         if (width !== undefined) {
-
             this.shader.uniforms.styleLine[0] = width;
         }
         if (nativeWidth !== undefined) {
@@ -751,6 +776,22 @@ export class Plot extends Mesh {
             geometry.capStyle = capStyle;
         }
         geometry.invalidate();
+    }
+
+    gLineStyle(obj: ILineStyleOptions) {
+        const geometry = this.geometry as PlotGeometry;
+        if (obj.width !== undefined) {
+            this.shader.uniforms.styleLine[0] = obj.width;
+        }
+        if (obj.color !== undefined) {
+            this.tint = obj.color;
+        }
+        if (obj.join !== undefined) {
+            geometry.joinStyle = obj.join;
+        }
+        if (obj.cap !== undefined) {
+            geometry.capStyle = obj.cap;
+        }
     }
 
     clear() {
