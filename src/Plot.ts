@@ -257,6 +257,12 @@ void main(void){
                 vType = 3.0;
             } else {
                 float hit = 0.0;
+                if (type >= BEVEL && type < BEVEL + 1.5) {
+                    if (dot(norm, norm2) > 0.0) {
+                        type = MITER;
+                    }
+                }
+
                 if (type >= MITER && type < MITER + 3.5) {
                     if (inner > 0.5) {
                         dy = -dy;
@@ -274,7 +280,6 @@ void main(void){
                             pos = dy * norm;
                         } else if (vertexNum > 6.5) {
                             pos = dy * norm2;
-                            // dy = ...
                         }
                         vType = 1.0;
                         dy = -sign * dot(pos, norm);
