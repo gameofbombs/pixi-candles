@@ -378,10 +378,14 @@ void main(void){
         float b2 = clamp(vDistance.y + 0.5 + lineWidth, 0.0, 1.0);
         float alpha_miter = a2 * b2 - a1 * b1;
 
-        float alpha_left = max(min(vDistance.z + 0.5, 1.0), 0.0); // vDistance.z is vArc.z - vArc.x
-        float alpha_circle = max(min(vArc.w - length(vArc.xy) + 0.5, 1.0), 0.0);; // do the circle math, without left part
+        float alpha_plane = max(min(vDistance.z + 0.5, 1.0), 0.0);
 
-        alpha = min(alpha_miter, alpha_circle + alpha_left);
+        float d = length(vArc.xy);
+        float circle_hor = max(min(vArc.w, d + 0.5) - max(-vArc.w, d - 0.5), 0.0);
+        float circle_vert = min(vArc.w * 2.0, 1.0);
+        float alpha_circle = circle_hor * circle_vert;
+
+        alpha = min(alpha_miter, max(alpha_circle, alpha_plane));
     } else {
         float a1 = clamp(vDistance.x + 0.5 - lineWidth, 0.0, 1.0);
         float a2 = clamp(vDistance.x + 0.5 + lineWidth, 0.0, 1.0);
@@ -827,7 +831,7 @@ export class Plot extends Mesh {
     }
 
     _renderCanvas(renderer: CanvasRenderer): void {
-        const {points, stridePoints} = this.geometry as PlotGeometry;
+        const {points, stridePoints, capStyle, joinStyle} = this.geometry as PlotGeometry;
         const {context} = renderer;
         const len = points.length;
         if (len < 2) {
@@ -841,6 +845,8 @@ export class Plot extends Mesh {
 
         context.strokeStyle = hex2string(this.tint);
         context.globalAlpha = this.worldAlpha;
+        context.lineCap = capStyle;
+        context.lineJoin = joinStyle;
 
         context.beginPath();
         context.moveTo(points[0], points[1]);
