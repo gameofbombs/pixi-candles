@@ -97,9 +97,9 @@ void main(void){
 
     float lineWidth = styleLine.x;
     if (scaleMode > 2.5) {
-        lineWidth *= length(translationMatrix * vec3(0.0, 1.0, 0.0));
-    } else if (scaleMode > 1.5) {
         lineWidth *= length(translationMatrix * vec3(1.0, 0.0, 0.0));
+    } else if (scaleMode > 1.5) {
+        lineWidth *= length(translationMatrix * vec3(0.0, 1.0, 0.0));
     } else if (scaleMode > 0.5) {
         vec2 avgDiag = (translationMatrix * vec3(1.0, 1.0, 0.0)).xy;
         lineWidth *= sqrt(dot(avgDiag, avgDiag) * 0.5);
