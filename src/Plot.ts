@@ -2,7 +2,7 @@ import {Buffer, Geometry, Program, Texture, Renderer} from '@pixi/core';
 import {CanvasRenderer} from '@pixi/canvas-renderer';
 import {Mesh, MeshMaterial} from '@pixi/mesh';
 import {createIndicesForQuads, hex2string} from '@pixi/utils';
-import {LINE_JOIN, LINE_CAP, ILineStyleOptions} from '@pixi/graphics';
+import {LINE_JOIN, LINE_CAP} from '@pixi/graphics';
 import {TYPES} from '@pixi/constants';
 
 export enum JOINT_TYPE {
@@ -19,6 +19,13 @@ export enum JOINT_TYPE {
     CAP_SQUARE = 2 << 5,
     CAP_ROUND = 3 << 5,
     CAP_BUTT2 = 4 << 5,
+}
+
+export enum LINE_SCALE_MODE {
+    NONE = 'none',
+    NORMAL = 'normal',
+    HORIZONTAL = 'horizontal',
+    VERTICAL = 'vertical',
 }
 
 const plotVert = `precision highp float;
@@ -55,6 +62,7 @@ varying float vType;
 uniform float resolution;
 uniform float expand;
 uniform float miterLimit;
+uniform float scaleMode;
 uniform vec2 styleLine;
 
 vec2 doBisect(vec2 norm, float len, vec2 norm2, float len2,
@@ -87,19 +95,18 @@ void main(void){
 
     float type = aVertexJoint;
 
-    vec2 avgDiag = (translationMatrix * vec3(1.0, 1.0, 0.0)).xy;
-    float avgScale = sqrt(dot(avgDiag, avgDiag) * 0.5);
-
+    float lineWidth = styleLine.x;
+    if (scaleMode > 2.5) {
+        lineWidth *= length(translationMatrix * vec3(0.0, 1.0, 0.0));
+    } else if (scaleMode > 1.5) {
+        lineWidth *= length(translationMatrix * vec3(1.0, 0.0, 0.0));
+    } else if (scaleMode > 0.5) {
+        vec2 avgDiag = (translationMatrix * vec3(1.0, 1.0, 0.0)).xy;
+        lineWidth *= sqrt(dot(avgDiag, avgDiag) * 0.5);
+    }
     float capType = floor(type / 32.0);
     type -= capType * 32.0;
     vArc = vec4(0.0);
-
-    float lineWidth = styleLine.x;
-    if (lineWidth < 0.0) {
-        lineWidth = -lineWidth;
-    } else {
-        lineWidth = lineWidth * avgScale;
-    }
     lineWidth *= 0.5;
     float lineAlignment = 2.0 * styleLine.y - 1.0;
 
@@ -413,6 +420,7 @@ export class PlotShader extends MeshMaterial {
             uniforms: {
                 resolution: 1,
                 expand: 1,
+                scaleMode: 1,
                 styleLine: new Float32Array([1.0, 0.5]),
                 miterLimit: 5.0,
             },
@@ -720,16 +728,29 @@ export interface PlotOptions {
     capStyle?: LINE_CAP;
 }
 
+export interface ILineStyleOptions{
+    color?: number;
+    alpha?: number;
+    width?: number;
+    alignment?: number;
+    scaleMode?: LINE_SCALE_MODE;
+    cap?: LINE_CAP;
+    join?: LINE_JOIN;
+    miterLimit?: number;
+}
+
 export class Plot extends Mesh {
     constructor(options: PlotOptions) {
         const geometry = new PlotGeometry();
         const shader = new PlotShader();
+        let scaleMode = LINE_SCALE_MODE.NORMAL;
         if (options) {
             if (options.lineWidth !== undefined) {
                 shader.uniforms.styleLine[0] = options.lineWidth;
             }
             if (options.nativeLineWidth !== undefined) {
                 shader.uniforms.styleLine[0] = options.nativeLineWidth;
+                scaleMode = LINE_SCALE_MODE.NONE;
             }
             if (options.joinStyle !== undefined) {
                 geometry.joinStyle = options.joinStyle;
@@ -740,6 +761,7 @@ export class Plot extends Mesh {
         }
 
         super(geometry, shader);
+        this.scaleMode = scaleMode
     }
 
     moveTo(x: number, y: number) {
@@ -767,9 +789,11 @@ export class Plot extends Mesh {
         const geometry = this.geometry as PlotGeometry;
         if (width !== undefined) {
             this.shader.uniforms.styleLine[0] = width;
+            this.scaleMode = LINE_SCALE_MODE.NORMAL
         }
         if (nativeWidth !== undefined) {
-            this.shader.uniforms.styleLine[0] = -nativeWidth;
+            this.shader.uniforms.styleLine[0] = nativeWidth;
+            this.scaleMode = LINE_SCALE_MODE.NONE
         }
         if (joinStyle !== undefined) {
             geometry.joinStyle = joinStyle;
@@ -785,6 +809,12 @@ export class Plot extends Mesh {
         if (obj.width !== undefined) {
             this.shader.uniforms.styleLine[0] = obj.width;
         }
+        if (obj.alignment !== undefined) {
+            this.shader.uniforms.styleLine[0] = obj.alignment;
+        }
+        if (obj.scaleMode !== undefined) {
+            this.shader.uniforms.scaleMode = obj.scaleMode;
+        }
         if (obj.color !== undefined) {
             this.tint = obj.color;
         }
@@ -795,6 +825,23 @@ export class Plot extends Mesh {
             geometry.capStyle = obj.cap;
         }
     }
+
+    set scaleMode(value: LINE_SCALE_MODE) {
+        this._scaleMode = value
+        let intVal = 0;
+        switch (value) {
+            case LINE_SCALE_MODE.NORMAL: intVal = 1; break;
+            case LINE_SCALE_MODE.HORIZONTAL: intVal = 2; break;
+            case LINE_SCALE_MODE.VERTICAL: intVal = 3; break;
+        }
+        this.shader.uniforms.scaleMode = intVal
+    }
+
+    get scaleMode(): LINE_SCALE_MODE {
+        return this._scaleMode
+    }
+
+    private _scaleMode : LINE_SCALE_MODE
 
     clear() {
         (this.geometry as PlotGeometry).reset();
