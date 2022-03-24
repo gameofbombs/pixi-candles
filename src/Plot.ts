@@ -577,13 +577,29 @@ export class PlotGeometry extends Geometry {
         for (let i = this.lastPointNum; i < points.length; i += stridePoints) {
             _floatView[j++] = points[i];
             _floatView[j++] = points[i + 1];
-            _floatView[j] = jointType;
-            if (i == 0 && capType !== JOINT_TYPE.CAP_ROUND) {
-                _floatView[j] += capType;
+
+            if (isNaN(points[i]) || isNaN(points[i + 1])) {
+                // find prev non-nan
+                _floatView[j-2] = (points[i+2] + points[i-2]) * 0.5;
+                _floatView[j-1] = (points[i+3] + points[i-1]) * 0.5;
+                _floatView[j] = 0;
+                j++;
+                continue;
             }
-            if (i + stridePoints * 2 >= points.length) {
+
+            _floatView[j] = jointType;
+            if (i == 0) {
+                if (capType !== JOINT_TYPE.CAP_ROUND) {
+                    _floatView[j] += capType;
+                }
+            } else {
+                if (isNaN(points[i - 2]) || isNaN(points[i - 1])) {
+                    _floatView[j] += JOINT_TYPE.CAP_BUTT;
+                }
+            }
+            if (i + stridePoints * 2 >= points.length || isNaN(points[i + 4]) || isNaN(points[i + 5])) {
                 _floatView[j] += endJoint - jointType;
-            } else if (i + stridePoints >= points.length) {
+            } else if (i + stridePoints >= points.length || isNaN(points[i + 2]) || isNaN(points[i + 3])) {
                 _floatView[j] = 0;
             }
             j++;
