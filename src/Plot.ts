@@ -574,6 +574,8 @@ export class PlotGeometry extends Geometry {
         this.lastPointData = Math.min(this.lastPointData, this.lastPointNum);
         let j = (Math.round(this.lastPointNum / stridePoints) + 2) * strideFloats; //actually that's int division
 
+        // TODO: null points should have extra instance? more than instance on one point?
+
         for (let i = this.lastPointNum; i < points.length; i += stridePoints) {
             _floatView[j++] = points[i];
             _floatView[j++] = points[i + 1];
